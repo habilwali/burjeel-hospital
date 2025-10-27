@@ -112,12 +112,15 @@ export default function HomeScreen() {
         <View style={styles.menuContainer}>
           <View style={styles.menuGrid}>
             {menuItems.map((item, index) => (
-              <TouchableOpacity 
+              // don't need opacity here
+              <TouchableOpacity
+              // @ts-ignore
+              activeOpacity={0.6} 
+              // @ts-ignore
                 key={item.id} 
                 style={[
                   styles.menuItem, 
-                  { backgroundColor: item.color },
-                  focusedItemIndex === index && styles.menuItemFocused
+                  { backgroundColor: item.color }
                 ]}
                 onPress={() => handleMenuClick(item)}
               >

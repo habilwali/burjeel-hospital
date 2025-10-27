@@ -94,7 +94,7 @@ export default function ChromecastScreen() {
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>

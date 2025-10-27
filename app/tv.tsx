@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, ScrollView, StatusBar, Platform, BackHandler } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, ScrollView, StatusBar, Platform, BackHandler, Modal } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 
@@ -12,6 +12,7 @@ export default function TVScreen() {
   const [focusedChannelIndex, setFocusedChannelIndex] = useState(0);
   const [focusedCategoryIndex, setFocusedCategoryIndex] = useState(0);
   const [showMenuPopup, setShowMenuPopup] = useState(false);
+  const [showFullscreen, setShowFullscreen] = useState(false);
 
   const channels = [
     { id: 1, name: 'BBC News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
@@ -49,7 +50,25 @@ export default function TVScreen() {
     player.play();
   });
 
+  // Separate player for fullscreen
+  const fullscreenPlayer = useVideoPlayer(selectedChannel.videoUrl, player => {
+    player.loop = true;
+    if (showFullscreen) {
+      player.play();
+    }
+  });
+
   const categories = ['All Channel', 'Comedy', 'Action', 'Drama', 'Sci-Fi'];
+
+  // Sync fullscreen player with main player
+  useEffect(() => {
+    if (showFullscreen) {
+      fullscreenPlayer.replace(selectedChannel.videoUrl);
+      setTimeout(() => {
+        fullscreenPlayer.play();
+      }, 100);
+    }
+  }, [showFullscreen, selectedChannel]);
 
   // Android Back Button Handler
   useEffect(() => {
@@ -100,6 +119,14 @@ export default function TVScreen() {
 
   const handleMenuBarPress = () => {
     setShowMenuPopup(!showMenuPopup);
+  };
+
+  const handleFullscreenPress = () => {
+    setShowFullscreen(true);
+  };
+
+  const handleCloseFullscreen = () => {
+    setShowFullscreen(false);
   };
 
   const handleChannelSelect = (channel: typeof channels[0]) => {
@@ -158,7 +185,7 @@ export default function TVScreen() {
 
         {/* Category Tabs */}
         <View style={styles.categoryContainer}>
-          <TouchableOpacity onPress={handleGoHome} style={styles.backButton}>
+          <TouchableOpacity activeOpacity={0.6} onPress={handleGoHome} style={styles.backButton}>
             <Text style={styles.backButtonText}>‹</Text>
           </TouchableOpacity>
           
@@ -166,10 +193,13 @@ export default function TVScreen() {
             {categories.map((category, index) => (
               <TouchableOpacity
                 key={category}
+                // @ts-ignore
+                activeOpacity={0.6} 
+                // @ts-ignore
                 style={[
                   styles.categoryTab,
                   selectedCategory === category && styles.categoryTabActive,
-                  focusedCategoryIndex === index && styles.categoryTabFocused
+                  // focusedCategoryIndex === index && styles.categoryTabFocused
                 ]}
                 onPress={() => {
                   setSelectedCategory(category);
@@ -179,7 +209,7 @@ export default function TVScreen() {
                 <Text style={[
                   styles.categoryText,
                   selectedCategory === category && styles.categoryTextActive,
-                  focusedCategoryIndex === index && styles.categoryTextFocused
+                  // focusedCategoryIndex === index && styles.categoryTextFocused
                 ]}>
                   {category}
                 </Text>
@@ -187,7 +217,7 @@ export default function TVScreen() {
             ))}
           </ScrollView>
 
-          <TouchableOpacity style={styles.nextButton}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.nextButton}>
             <Text style={styles.nextButtonText}>›</Text>
           </TouchableOpacity>
         </View>
@@ -200,10 +230,13 @@ export default function TVScreen() {
               {channels.map((channel, index) => (
                 <TouchableOpacity
                   key={channel.id}
+                  // @ts-ignore
+                  activeOpacity={0.6} 
+                  // @ts-ignore
                   style={[
                     styles.channelItem,
                     selectedChannel.id === channel.id && styles.channelItemActive,
-                    focusedChannelIndex === index && styles.channelItemFocused
+                    // focusedChannelIndex === index && styles.channelItemFocused
                   ]}
                   onPress={() => {
                     handleChannelSelect(channel);
@@ -242,6 +275,7 @@ export default function TVScreen() {
             <View style={styles.menuPopup}>
               {/* Close Button */}
               <TouchableOpacity 
+                activeOpacity={0.6}
                 style={styles.closeButton}
                 onPress={() => setShowMenuPopup(false)}
               >
@@ -250,6 +284,7 @@ export default function TVScreen() {
               
               <View style={styles.menuGrid}>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenuPopup(false);
@@ -260,6 +295,7 @@ export default function TVScreen() {
                   <Text style={styles.menuLabel}>TV</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     console.log('Information button pressed');
@@ -272,6 +308,7 @@ export default function TVScreen() {
                   <Text style={styles.menuLabel}>INFORMATION</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenuPopup(false);
@@ -283,6 +320,7 @@ export default function TVScreen() {
                   <Text style={styles.menuLabel}>CHROMECAST</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenuPopup(false);
@@ -294,6 +332,7 @@ export default function TVScreen() {
                   <Text style={styles.menuLabel}>MESSAGES</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenuPopup(false);
@@ -305,6 +344,7 @@ export default function TVScreen() {
                   <Text style={styles.menuLabel}>MAP</Text>
                 </TouchableOpacity>
                 <TouchableOpacity 
+                  activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
                     setShowMenuPopup(false);
@@ -325,14 +365,14 @@ export default function TVScreen() {
 
         {/* Bottom Control Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.controlItem} onPress={handleMenuBarPress}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleMenuBarPress}>
             <View style={styles.controlIcon} />
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>
-          <View style={styles.controlItem}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleFullscreenPress}>
             <View style={styles.controlIcon} />
             <Text style={styles.controlLabel}>FULL SCREEN</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.controlItem}>
             <View style={styles.controlIcon} />
             <Text style={styles.controlLabel}>SELECT CATEGORIES</Text>
@@ -342,6 +382,34 @@ export default function TVScreen() {
             <Text style={styles.controlLabel}>SELECT CHANNEL</Text>
           </View>
         </View>
+
+        {/* Fullscreen Video Modal */}
+        {showFullscreen && (
+          <Modal
+            visible={showFullscreen}
+            transparent={false}
+            animationType="fade"
+            onRequestClose={handleCloseFullscreen}
+          >
+            <View style={styles.fullscreenContainer}>
+              <StatusBar hidden={true} />
+              <VideoView
+                player={fullscreenPlayer}
+                style={styles.fullscreenVideo}
+                nativeControls={false}
+              />
+              
+              {/* Close Button */}
+              <TouchableOpacity 
+                activeOpacity={0.6}
+                style={styles.fullscreenCloseButton}
+                onPress={handleCloseFullscreen}
+              >
+                <Text style={styles.fullscreenCloseText}>✕ Exit Fullscreen</Text>
+              </TouchableOpacity>
+            </View>
+          </Modal>
+        )}
       </ImageBackground>
     </>
   );
@@ -623,6 +691,33 @@ const styles = StyleSheet.create({
   arrowText: {
     fontSize: 30,
     color: '#8B1538',
+    fontWeight: 'bold',
+  },
+  fullscreenContainer: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullscreenVideo: {
+    width: width,
+    height: height,
+  },
+  fullscreenCloseButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.7)',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 25,
+    borderWidth: 2,
+    borderColor: '#fff',
+    zIndex: 10,
+  },
+  fullscreenCloseText: {
+    color: '#fff',
+    fontSize: 16,
     fontWeight: 'bold',
   },
 });

@@ -116,6 +116,7 @@ export default function MessagesScreen() {
         {/* Message Timeline */}
         <View style={styles.timelineContainer}>
           <TouchableOpacity 
+            activeOpacity={0.6}
             style={styles.arrowButton}
             onPress={handlePreviousMessage}
             disabled={selectedMessageIndex === 0}
@@ -125,6 +126,7 @@ export default function MessagesScreen() {
 
           {messages.map((message, index) => (
             <TouchableOpacity
+              activeOpacity={0.6}
               key={message.id}
               style={[
                 styles.timelineItem,
@@ -148,6 +150,7 @@ export default function MessagesScreen() {
           ))}
 
           <TouchableOpacity 
+            activeOpacity={0.6}
             style={styles.arrowButton}
             onPress={handleNextMessage}
             disabled={selectedMessageIndex === messages.length - 1}
@@ -169,12 +172,14 @@ export default function MessagesScreen() {
 
             {/* Scroll Indicators */}
             <TouchableOpacity 
+              activeOpacity={0.6}
               style={[styles.scrollIndicator, styles.scrollUp]}
               onPress={handleScrollUp}
             >
               <Text style={styles.scrollIcon}>▲</Text>
             </TouchableOpacity>
             <TouchableOpacity 
+              activeOpacity={0.6}
               style={[styles.scrollIndicator, styles.scrollDown]}
               onPress={handleScrollDown}
             >
@@ -185,7 +190,7 @@ export default function MessagesScreen() {
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>

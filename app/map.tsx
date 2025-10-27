@@ -241,6 +241,7 @@ export default function MapScreen() {
           {selectedLocation.type.charAt(0).toUpperCase() + selectedLocation.type.slice(1)}
         </Text>
         <TouchableOpacity
+          activeOpacity={0.6}
           style={styles.closeButton}
           onPress={() => setSelectedLocation(null)}
         >
@@ -255,6 +256,7 @@ export default function MapScreen() {
       <Text style={styles.listTitle}>Nearby Locations</Text>
       {locations.map((location) => (
         <TouchableOpacity
+          activeOpacity={0.6}
           key={location.id}
           style={[styles.locationItem, { borderLeftColor: getLocationColor(location.type) }]}
           onPress={() => handleLocationPress(location)}
@@ -297,15 +299,15 @@ export default function MapScreen() {
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>BACK</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlItem} onPress={handleZoomIn}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleZoomIn}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>ZOOM IN</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.controlItem} onPress={handleZoomOut}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleZoomOut}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>ZOOM OUT</Text>
           </TouchableOpacity>

@@ -47,12 +47,13 @@
     },
     "newArchEnabled": true,
     "name": "Burjeel-hospital",
-    "slug": "Burjeel-hospital",
+    "slug": "burjeelhospital",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "e6f5c699-f26a-4ece-9c3a-d1f00d1617da"
+        "projectId": "eac00e4a-aee3-4bbe-a54f-ea97c8c8128d"
       }
-    }
+    },
+    "owner": "habeelwali"
   }
 }

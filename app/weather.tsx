@@ -119,6 +119,7 @@ export default function WeatherScreen() {
         {/* Region Timeline */}
         <View style={styles.regionContainer}>
           <TouchableOpacity 
+            activeOpacity={0.6}
             style={styles.arrowButton}
             onPress={handlePreviousRegion}
             disabled={selectedRegionIndex === 0}
@@ -128,6 +129,7 @@ export default function WeatherScreen() {
 
           {weatherData.map((region, index) => (
             <TouchableOpacity
+              activeOpacity={0.6}
               key={region.name}
               style={[
                 styles.regionItem,
@@ -145,6 +147,7 @@ export default function WeatherScreen() {
           ))}
 
           <TouchableOpacity 
+            activeOpacity={0.6}
             style={styles.arrowButton}
             onPress={handleNextRegion}
             disabled={selectedRegionIndex === weatherData.length - 1}
@@ -181,7 +184,7 @@ export default function WeatherScreen() {
 
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>

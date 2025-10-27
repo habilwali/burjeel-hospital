@@ -138,6 +138,7 @@ export default function ServicesScreen() {
           {/* Tab Navigation */}
           <View style={styles.tabContainer}>
             <TouchableOpacity 
+              activeOpacity={0.6}
               style={[styles.tab, activeTab === 'Information 1' ? styles.activeTab : styles.inactiveTab]}
               onPress={() => handleTabPress('Information 1')}
             >
@@ -147,6 +148,7 @@ export default function ServicesScreen() {
             </TouchableOpacity>
             
             <TouchableOpacity 
+              activeOpacity={0.6}
               style={[styles.tab, activeTab === 'Information 2' ? styles.activeTab : styles.inactiveTab]}
               onPress={() => handleTabPress('Information 2')}
             >
@@ -156,6 +158,7 @@ export default function ServicesScreen() {
             </TouchableOpacity>
             
             <TouchableOpacity 
+              activeOpacity={0.6}
               style={[styles.tab, activeTab === 'Information 3' ? styles.activeTab : styles.inactiveTab]}
               onPress={() => handleTabPress('Information 3')}
             >
@@ -181,7 +184,7 @@ export default function ServicesScreen() {
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>SELECT CATEGORY</Text>
           </View>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>BACK</Text>
           </TouchableOpacity>

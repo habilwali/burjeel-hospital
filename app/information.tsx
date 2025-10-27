@@ -68,6 +68,7 @@ export default function InformationScreen() {
             {/* Sub-category Buttons */}
             <View style={styles.subCategoryGrid}>
               <TouchableOpacity 
+                activeOpacity={0.6}
                 style={styles.subCategoryButton}
                 onPress={() => handleSubCategorySelect('Service')}
               >
@@ -75,6 +76,7 @@ export default function InformationScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity 
+                activeOpacity={0.6}
                 style={styles.subCategoryButton}
                 onPress={() => handleSubCategorySelect('Doctor')}
               >
@@ -82,6 +84,7 @@ export default function InformationScreen() {
               </TouchableOpacity>
               
               <TouchableOpacity 
+                activeOpacity={0.6}
                 style={styles.subCategoryButton}
                 onPress={() => handleSubCategorySelect('Department')}
               >
@@ -105,7 +108,7 @@ export default function InformationScreen() {
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>LANGUAGE</Text>
           </View>
-          <TouchableOpacity style={styles.controlItem} onPress={handleGoBack}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.controlButton} />
             <Text style={styles.controlLabel}>BACK</Text>
           </TouchableOpacity>
