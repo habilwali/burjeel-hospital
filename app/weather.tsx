@@ -10,6 +10,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { router } from 'expo-router';
+import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -100,21 +101,12 @@ export default function WeatherScreen() {
     <>
       <StatusBar hidden={true} />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
         style={styles.container}
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.roomText}>Room 215</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerInfo}>
-              {formatDate(currentTime)} | {formatTime(currentTime)} | ☁️ 19°C
-            </Text>
-          </View>
-        </View>
+        <DynamicHeader currentTime={currentTime} />
 
         {/* Region Timeline */}
         <View style={styles.regionContainer}>

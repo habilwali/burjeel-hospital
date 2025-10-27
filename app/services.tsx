@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar, ScrollView } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
+import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -116,22 +117,12 @@ export default function ServicesScreen() {
     <>
       <StatusBar hidden={true} />
       <ImageBackground
-        source={{ uri: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
         style={styles.container}
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.headerLeft}>
-            <Text style={styles.logoText}>vps healthcare</Text>
-            <Text style={styles.hospitalText}>برجيل burjeel hospital</Text>
-          </View>
-          <View style={styles.headerRight}>
-            <Text style={styles.headerInfo}>
-              Room 215 | {formatDate(currentTime)} | {formatTime(currentTime)} | ☁️ 19°C
-            </Text>
-          </View>
-        </View>
+        <DynamicHeader currentTime={currentTime} />
 
         {/* Main Content */}
         <View style={styles.mainContent}>

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, Modal, Dimensions, ImageBackground, StatusBar } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, Modal, Dimensions, ImageBackground, StatusBar, Image } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
+import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,22 +18,23 @@ export default function HomeScreen() {
     player.play();
   });
 
-  const menuItems = [
+  // Memoize menuItems to prevent re-creation
+  const menuItems = useMemo(() => [
     { id: 1, icon: '📺', label: 'TV', color: '#8B1538', route: '/tv' },
     { id: 2, icon: 'ℹ️', label: 'INFORMATION', color: '#8B1538', route: '/information' },
     { id: 3, icon: '📱', label: 'CHROMECAST', color: '#8B1538', route: '/chromecast' },
     { id: 4, icon: '✉️', label: 'MESSAGES', color: '#8B1538', route: '/messages' },
     { id: 5, icon: '📍', label: 'MAP', color: '#8B1538', route: '/map' },
     { id: 6, icon: '🌡️', label: 'WEATHER', color: '#8B1538', route: '/weather' },
-  ];
+  ], []);
 
-  const handleMenuClick = (item: typeof menuItems[0]) => {
+  const handleMenuClick = useCallback((item: typeof menuItems[0]) => {
     if (item.route) {
       setShowVideoModal(false);
       setShowWelcome(false);
       router.push(item.route as any);
     }
-  };
+  }, [router]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -41,31 +43,43 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  const formatDate = (date: Date) => {
+  const formatDate = useCallback((date: Date) => {
     return date.toLocaleDateString('en-US', {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
       day: 'numeric'
     });
-  };
+  }, []);
 
-  const formatTime = (date: Date) => {
+  const formatTime = useCallback((date: Date) => {
     return date.toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       hour12: false
     });
-  };
+  }, []);
 
-  const handleSkipVideo = () => {
+  const handleSkipVideo = useCallback(() => {
+    player.pause(); // Pause video when skipping
     setShowVideoModal(false);
     setShowWelcome(true);
-  };
+  }, [player]);
 
-  const handleSkipWelcome = () => {
+  const handleSkipWelcome = useCallback(() => {
     setShowWelcome(false);
-  };
+  }, []);
+
+  // Control video playback based on modal state
+  useEffect(() => {
+    if (showVideoModal) {
+      // Play video when modal is visible
+      player.play();
+    } else {
+      // Pause video when modal is not visible
+      player.pause();
+    }
+  }, [showVideoModal, player]);
 
   useEffect(() => {
     const timer = setInterval(() => {
@@ -79,34 +93,13 @@ export default function HomeScreen() {
     <>
       <StatusBar hidden={true} />
       <ImageBackground 
-        source={{ uri: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
         style={styles.container}
         resizeMode="cover"
       >
       <View style={styles.backgroundImage} />
       
-      <View style={styles.headerBar}>
-        <View style={styles.logoSection}>
-          <View style={styles.vpsLogo}>
-            <View style={styles.vpsLogoIcon} />
-            <Text style={styles.vpsText}>VPS healthcare</Text>
-          </View>
-          <View style={styles.burjeelLogo}>
-            <Text style={styles.burjeelOneLine}>برجيل burjeel hospital</Text>
-          </View>
-        </View>
-
-        <View style={styles.infoSection}>
-          <Text style={styles.infoText}>Room 215</Text>
-          <Text style={styles.separator}>|</Text>
-          <Text style={styles.infoText}>{formatDate(currentTime)}</Text>
-          <Text style={styles.separator}>|</Text>
-          <Text style={styles.infoText}>{formatTime(currentTime)}</Text>
-          <Text style={styles.separator}>|</Text>
-          <Text style={styles.weatherIcon}>☁️</Text>
-          <Text style={styles.infoText}>19°C</Text>
-        </View>
-      </View>
+      <DynamicHeader currentTime={currentTime} />
 
       <View style={styles.mainContent}>
         <View style={styles.menuContainer}>
@@ -192,17 +185,12 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, width: width, height: height, backgroundColor: '#f0f0f0' },
-  backgroundImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#e8f4f8', opacity: 0.3 },
-  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, backgroundColor: 'rgba(255, 255, 255, 0.9)', borderBottomWidth: 1, borderBottomColor: '#e0e0e0' },
-  logoSection: { flexDirection: 'row', alignItems: 'center', gap: 20 },
-  vpsLogo: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  vpsLogoIcon: { width: 30, height: 30, backgroundColor: '#0066cc', borderRadius: 5 },
-  vpsText: { fontSize: 14, color: '#0066cc', fontWeight: '500' },
-  burjeelLogo: { backgroundColor: '#8B5CF6', paddingHorizontal: 12, paddingVertical: 4, borderRadius: 8, alignItems: 'center' },
-  burjeelOneLine: { fontSize: 14, color: 'white', fontWeight: 'bold' },
+  backgroundImage: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: '#e8f4f8', opacity: 0 },
+  headerBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 8, backgroundColor: 'transparent', borderBottomWidth: 0 },
+  burjeelHeaderLogo: { width: 150, height: 50 },
   infoSection: { flexDirection: 'row', alignItems: 'center', gap: 15 },
-  infoText: { fontSize: 14, color: '#333', fontWeight: '500' },
-  separator: { fontSize: 14, color: '#999' },
+  infoText: { fontSize: 14, color: '#000000', fontWeight: '500' },
+  separator: { fontSize: 14, color: '#000000' },
   weatherIcon: { fontSize: 16 },
   mainContent: { flex: 1, justifyContent: 'center', alignItems: 'flex-start', paddingLeft: 20, paddingTop: 20, paddingBottom: 20 },
   menuContainer: { flexDirection: 'row', alignItems: 'center' },

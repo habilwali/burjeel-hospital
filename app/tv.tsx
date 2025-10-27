@@ -1,9 +1,72 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, ScrollView, StatusBar, Platform, BackHandler, Modal } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, ScrollView, StatusBar, Platform, BackHandler, Modal, FlatList } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
+import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
+
+// Memoized Channel List Item Component
+const ChannelItem = React.memo(({ 
+  channel, 
+  index, 
+  isActive, 
+  isFocused, 
+  onPress 
+}: { 
+  channel: { id: number; name: string; videoUrl: string }; 
+  index: number;
+  isActive: boolean;
+  isFocused: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    activeOpacity={0.6}
+    style={[
+      styles.channelItem,
+      isActive && styles.channelItemActive,
+      isFocused && styles.channelItemFocused
+    ]}
+    onPress={onPress}
+  >
+    <Text style={[
+      styles.channelText,
+      isActive && styles.channelTextActive,
+      isFocused && styles.channelTextFocused
+    ]}>
+      {channel.name}
+    </Text>
+  </TouchableOpacity>
+));
+
+// Memoized Category Tab Component
+const CategoryTab = React.memo(({ 
+  category, 
+  index, 
+  isActive, 
+  onPress 
+}: { 
+  category: string; 
+  index: number;
+  isActive: boolean;
+  onPress: () => void;
+}) => (
+  <TouchableOpacity
+    activeOpacity={0.6}
+    style={[
+      styles.categoryTab,
+      isActive && styles.categoryTabActive,
+    ]}
+    onPress={onPress}
+  >
+    <Text style={[
+      styles.categoryText,
+      isActive && styles.categoryTextActive,
+    ]}>
+      {category}
+    </Text>
+  </TouchableOpacity>
+));
 
 export default function TVScreen() {
   const router = useRouter();
@@ -14,7 +77,8 @@ export default function TVScreen() {
   const [showMenuPopup, setShowMenuPopup] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
 
-  const channels = [
+  // Memoize channels array to prevent re-creation
+  const channels = useMemo(() => [
     { id: 1, name: 'BBC News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
     { id: 2, name: 'Channel News Asia', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
     { id: 3, name: 'CCTV', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' },
@@ -33,42 +97,58 @@ export default function TVScreen() {
     { id: 16, name: 'MSNBC', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
     { id: 17, name: 'Bloomberg', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
     { id: 18, name: 'CNBC', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' },
-  ];
+  ], []);
 
   const [selectedChannel, setSelectedChannel] = useState(channels[0]);
+  
+  // Memoize categories array
+  const categories = useMemo(() => ['All Channel', 'Comedy', 'Action', 'Drama', 'Sci-Fi'], []);
 
-  const handleGoHome = () => {
+  const handleGoHome = useCallback(() => {
     if (router.canGoBack()) {
       router.back();
     } else {
       router.replace('/' as any);
     }
-  };
+  }, [router]);
 
   const player = useVideoPlayer(selectedChannel.videoUrl, player => {
     player.loop = true;
+    player.volume = 1.0; // Set volume to maximum
+    player.muted = false; // Ensure audio is not muted
     player.play();
   });
 
   // Separate player for fullscreen
   const fullscreenPlayer = useVideoPlayer(selectedChannel.videoUrl, player => {
     player.loop = true;
+    player.volume = 1.0; // Set volume to maximum
+    player.muted = false; // Ensure audio is not muted
     if (showFullscreen) {
       player.play();
     }
   });
 
-  const categories = ['All Channel', 'Comedy', 'Action', 'Drama', 'Sci-Fi'];
-
-  // Sync fullscreen player with main player
+  // Sync fullscreen player with main player and pause main video
   useEffect(() => {
     if (showFullscreen) {
+      // Pause the main video when entering fullscreen
+      player.pause();
+      
+      // Load and play the fullscreen video
       fullscreenPlayer.replace(selectedChannel.videoUrl);
+      fullscreenPlayer.volume = 1.0; // Ensure volume is set to maximum
+      fullscreenPlayer.muted = false; // Ensure audio is not muted
       setTimeout(() => {
         fullscreenPlayer.play();
       }, 100);
+    } else {
+      // Resume the main video when exiting fullscreen
+      player.volume = 1.0; // Ensure volume is set to maximum
+      player.muted = false; // Ensure audio is not muted
+      player.play();
     }
-  }, [showFullscreen, selectedChannel]);
+  }, [showFullscreen, selectedChannel, player, fullscreenPlayer]);
 
   // Android Back Button Handler
   useEffect(() => {
@@ -117,23 +197,25 @@ export default function TVScreen() {
     }
   };
 
-  const handleMenuBarPress = () => {
-    setShowMenuPopup(!showMenuPopup);
-  };
+  const handleMenuBarPress = useCallback(() => {
+    setShowMenuPopup(prev => !prev);
+  }, []);
 
-  const handleFullscreenPress = () => {
+  const handleFullscreenPress = useCallback(() => {
     setShowFullscreen(true);
-  };
+  }, []);
 
-  const handleCloseFullscreen = () => {
+  const handleCloseFullscreen = useCallback(() => {
     setShowFullscreen(false);
-  };
+  }, []);
 
-  const handleChannelSelect = (channel: typeof channels[0]) => {
+  const handleChannelSelect = useCallback((channel: typeof channels[0]) => {
     setSelectedChannel(channel);
     player.replace(channel.videoUrl);
+    player.volume = 1.0; // Ensure volume is set to maximum
+    player.muted = false; // Ensure audio is not muted
     player.play();
-  };
+  }, [player]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -156,32 +238,12 @@ export default function TVScreen() {
     <>
       <StatusBar hidden={true} />
       <ImageBackground 
-        source={{ uri: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80' }}
+        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
         style={styles.container}
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <View style={styles.headerBar}>
-          <View style={styles.logoSection}>
-            <View style={styles.vpsLogo}>
-              <Text style={styles.vpsText}>vps healthcare</Text>
-            </View>
-            <View style={styles.burjeelLogo}>
-              <Text style={styles.burjeelOneLine}>برجيل burjeel hospital</Text>
-            </View>
-          </View>
-          
-          <View style={styles.infoSection}>
-            <Text style={styles.infoText}>Room 215</Text>
-            <Text style={styles.separator}>|</Text>
-            <Text style={styles.infoText}>{formatDate(currentTime)}</Text>
-            <Text style={styles.separator}>|</Text>
-            <Text style={styles.infoText}>{formatTime(currentTime)}</Text>
-            <Text style={styles.separator}>|</Text>
-            <Text style={styles.weatherIcon}>☁️</Text>
-            <Text style={styles.infoText}>19°C</Text>
-          </View>
-        </View>
+        <DynamicHeader currentTime={currentTime} />
 
         {/* Category Tabs */}
         <View style={styles.categoryContainer}>
@@ -191,29 +253,16 @@ export default function TVScreen() {
           
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
             {categories.map((category, index) => (
-              <TouchableOpacity
+              <CategoryTab
                 key={category}
-                // @ts-ignore
-                activeOpacity={0.6} 
-                // @ts-ignore
-                style={[
-                  styles.categoryTab,
-                  selectedCategory === category && styles.categoryTabActive,
-                  // focusedCategoryIndex === index && styles.categoryTabFocused
-                ]}
+                category={category}
+                index={index}
+                isActive={selectedCategory === category}
                 onPress={() => {
                   setSelectedCategory(category);
                   setFocusedCategoryIndex(index);
                 }}
-              >
-                <Text style={[
-                  styles.categoryText,
-                  selectedCategory === category && styles.categoryTextActive,
-                  // focusedCategoryIndex === index && styles.categoryTextFocused
-                ]}>
-                  {category}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </ScrollView>
 
@@ -226,33 +275,27 @@ export default function TVScreen() {
         <View style={styles.mainContent}>
           {/* Channel List - Left */}
           <View style={styles.channelList}>
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {channels.map((channel, index) => (
-                <TouchableOpacity
-                  key={channel.id}
-                  // @ts-ignore
-                  activeOpacity={0.6} 
-                  // @ts-ignore
-                  style={[
-                    styles.channelItem,
-                    selectedChannel.id === channel.id && styles.channelItemActive,
-                    // focusedChannelIndex === index && styles.channelItemFocused
-                  ]}
+            <FlatList
+              data={channels}
+              keyExtractor={(item) => item.id.toString()}
+              showsVerticalScrollIndicator={false}
+              renderItem={({ item, index }) => (
+                <ChannelItem
+                  channel={item}
+                  index={index}
+                  isActive={selectedChannel.id === item.id}
+                  isFocused={focusedChannelIndex === index}
                   onPress={() => {
-                    handleChannelSelect(channel);
+                    handleChannelSelect(item);
                     setFocusedChannelIndex(index);
                   }}
-                >
-                  <Text style={[
-                    styles.channelText,
-                    selectedChannel.id === channel.id && styles.channelTextActive,
-                    focusedChannelIndex === index && styles.channelTextFocused
-                  ]}>
-                    {channel.name}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
+                />
+              )}
+              removeClippedSubviews={true}
+              initialNumToRender={10}
+              maxToRenderPerBatch={5}
+              windowSize={10}
+            />
           </View>
 
               {/* Video Player - Right */}
@@ -427,9 +470,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
     paddingVertical: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: 'transparent',
+    borderBottomWidth: 0,
   },
   logoSection: {
     flexDirection: 'row',
@@ -474,7 +516,7 @@ const styles = StyleSheet.create({
   categoryContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    backgroundColor: 'white',
     paddingVertical: 10,
     paddingHorizontal: 10,
   },
@@ -535,6 +577,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     padding: 15,
     gap: 15,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
   },
   channelList: {
     width: width * 0.25,

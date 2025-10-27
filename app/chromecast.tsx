@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import QRCode from 'react-qr-code';
+import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -23,11 +24,13 @@ export default function ChromecastScreen() {
   return (
     <>
       <StatusBar hidden={true} />
-      <View style={styles.container}>
+      <ImageBackground
+        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
+        style={styles.container}
+        resizeMode="cover"
+      >
         {/* Header */}
-        <View style={styles.header}>
-          <Text style={styles.headerText}>Chromecast</Text>
-        </View>
+        <DynamicHeader currentTime={new Date()} />
 
         {/* Main Content */}
         <View style={styles.mainContent}>
@@ -99,7 +102,7 @@ export default function ChromecastScreen() {
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>
         </View>
-      </View>
+      </ImageBackground>
     </>
   );
 }
