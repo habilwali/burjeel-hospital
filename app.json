@@ -20,13 +20,17 @@
       "expo-router",
       "expo-font",
       "expo-build-properties",
-      "expo-web-browser"
+      "expo-web-browser",
+      "expo-video"
     ],
     "android": {
       "edgeToEdgeEnabled": true,
       "splash": {
-        "image": "./assets/images/splash.png"
-      }
+        "image": "./assets/images/splash.png",
+        "resizeMode": "cover"
+      },
+      "package": "com.habeelwali.Burjeelhospital",
+      "orientation": "landscape"
     },
     "ios": {
       "splash": {
@@ -43,6 +47,12 @@
     },
     "newArchEnabled": true,
     "name": "Burjeel-hospital",
-    "slug": "Burjeel-hospital"
+    "slug": "Burjeel-hospital",
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "e6f5c699-f26a-4ece-9c3a-d1f00d1617da"
+      }
+    }
   }
 }
