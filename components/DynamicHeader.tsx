@@ -6,9 +6,11 @@ const { width } = Dimensions.get('window');
 
 interface DynamicHeaderProps {
   currentTime: Date;
+  /** Room number from welcome_api (e.g. "1001"). Shown as "Room {roomNumber}" or "Room —" when not loaded. */
+  roomNumber?: string | null;
 }
 
-export default function DynamicHeader({ currentTime }: DynamicHeaderProps) {
+export default function DynamicHeader({ currentTime, roomNumber }: DynamicHeaderProps) {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
       month: 'short',
@@ -34,7 +36,7 @@ export default function DynamicHeader({ currentTime }: DynamicHeaderProps) {
       />
 
       <View style={styles.infoSection}>
-        <Text style={styles.infoText}>Room 215</Text>
+        <Text style={styles.infoText}>Room {roomNumber ?? '—'}</Text>
         <Text style={styles.separator}>|</Text>
         <Text style={styles.infoText}>{formatDate(currentTime)}</Text>
         <Text style={styles.separator}>|</Text>

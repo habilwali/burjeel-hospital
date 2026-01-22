@@ -43,9 +43,17 @@
     },
     "production": {},
     "production_tv": {
-      "extends": "production", 
+      "extends": "production",
       "env": {
         "EXPO_TV": "1"
+      }
+    },
+    "local_tv": {
+      "extends": "preview_tv",
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk",
+        "withoutCredentials": true
       }
     }
   },

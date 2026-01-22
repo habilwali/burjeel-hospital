@@ -11,6 +11,7 @@ npm-debug.*
 *.mobileprovision
 *.orig.*
 web-build/
+Burjeel-Hospital-Android-TV.apk
 
 # macOS
 .DS_Store

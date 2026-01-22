@@ -1,108 +1,117 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, ScrollView, StatusBar, Platform, BackHandler, Modal, FlatList } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, Dimensions, StatusBar, Platform, BackHandler, Modal, ActivityIndicator } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
+import { getPackages } from '../api/getPackages';
+import { getChannels } from '../api/getChannels';
+import type { PackageItem } from '../types/packages';
+import TvCategoryBar from '../components/TvCategoryBar';
+import TvChannelList from '../components/TvChannelList';
+import TvPlayer from '../components/TvPlayer';
+import TvBottomControls from '../components/TvBottomControls';
+import { cacheGet, cacheSet } from '../lib/cache';
 
 const { width, height } = Dimensions.get('window');
+const DEFAULT_MAC = 'A4:34:D9:E6:F7:30';
+const PACKAGES_CACHE_KEY = `packages:${DEFAULT_MAC}`;
+const CHANNELS_CACHE_PREFIX = 'channels:';
 
-// Memoized Channel List Item Component
-const ChannelItem = React.memo(({ 
-  channel, 
-  index, 
-  isActive, 
-  isFocused, 
-  onPress 
-}: { 
-  channel: { id: number; name: string; videoUrl: string }; 
-  index: number;
-  isActive: boolean;
-  isFocused: boolean;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    activeOpacity={0.6}
-    style={[
-      styles.channelItem,
-      isActive && styles.channelItemActive,
-      isFocused && styles.channelItemFocused
-    ]}
-    onPress={onPress}
-  >
-    <Text style={[
-      styles.channelText,
-      isActive && styles.channelTextActive,
-      isFocused && styles.channelTextFocused
-    ]}>
-      {channel.name}
-    </Text>
-  </TouchableOpacity>
-));
+// Fallback when API fails or empty; shape matches getPackages: { id, name, price, image }
+const FALLBACK_PACKAGE: PackageItem = { id: 0, name: 'All Channels', price: 0, image: null };
 
-// Memoized Category Tab Component
-const CategoryTab = React.memo(({ 
-  category, 
-  index, 
-  isActive, 
-  onPress 
-}: { 
-  category: string; 
-  index: number;
-  isActive: boolean;
-  onPress: () => void;
-}) => (
-  <TouchableOpacity
-    activeOpacity={0.6}
-    style={[
-      styles.categoryTab,
-      isActive && styles.categoryTabActive,
-    ]}
-    onPress={onPress}
-  >
-    <Text style={[
-      styles.categoryText,
-      isActive && styles.categoryTextActive,
-    ]}>
-      {category}
-    </Text>
-  </TouchableOpacity>
-));
+const FALLBACK_VIDEO_URL = 'https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4';
+
+/** UI channel: id, name, videoUrl (from stream_url), optional logo */
+type ChannelUi = { id: number; name: string; videoUrl: string; logo?: string };
 
 export default function TVScreen() {
   const router = useRouter();
-  const [selectedCategory, setSelectedCategory] = useState('All Channel');
+  const [packages, setPackages] = useState<PackageItem[] | null>(null);
+  const [packagesLoading, setPackagesLoading] = useState(true);
+  const [selectedCategory, setSelectedCategory] = useState('All Channels');
   const [currentTime] = useState(new Date());
   const [focusedChannelIndex, setFocusedChannelIndex] = useState(0);
   const [focusedCategoryIndex, setFocusedCategoryIndex] = useState(0);
   const [showMenuPopup, setShowMenuPopup] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
 
-  // Memoize channels array to prevent re-creation
-  const channels = useMemo(() => [
-    { id: 1, name: 'BBC News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
-    { id: 2, name: 'Channel News Asia', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
-    { id: 3, name: 'CCTV', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' },
-    { id: 4, name: 'CNN', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerJoyrides.mp4' },
-    { id: 5, name: 'Fox News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerMeltdowns.mp4' },
-    { id: 6, name: 'Al Jazeera', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/Sintel.mp4' },
-    { id: 7, name: 'Sky News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/TearsOfSteel.mp4' },
-    { id: 8, name: 'NBC', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
-    { id: 9, name: 'ABC News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
-    { id: 10, name: 'CBS News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/VolkswagenGTIReview.mp4' },
-    { id: 11, name: 'Euro News', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WeAreGoingOnBullrun.mp4' },
-    { id: 12, name: 'Discovery', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/WhatCarCanYouGetForAGrand.mp4' },
-    { id: 13, name: 'National Geographic', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/SubaruOutbackOnStreetAndDirt.mp4' },
-    { id: 14, name: 'History Channel', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4' },
-    { id: 15, name: 'Sports Channel', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ElephantsDream.mp4' },
-    { id: 16, name: 'MSNBC', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4' },
-    { id: 17, name: 'Bloomberg', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerEscapes.mp4' },
-    { id: 18, name: 'CNBC', videoUrl: 'http://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerFun.mp4' },
-  ], []);
+  // Categories from getPackages API; fallback when loading or empty
+  const categoriesList = useMemo(
+    () => (Array.isArray(packages) && packages.length > 0 ? packages : [FALLBACK_PACKAGE]),
+    [packages]
+  );
 
-  const [selectedChannel, setSelectedChannel] = useState(channels[0]);
-  
-  // Memoize categories array
-  const categories = useMemo(() => ['All Channel', 'Comedy', 'Action', 'Drama', 'Sci-Fi'], []);
+  // Fetch packages (categories) from API
+  useEffect(() => {
+    let cancelled = false;
+    setPackagesLoading(true);
+    getPackages()
+      .then((res) => {
+        console.log('[getPackages] API response:', JSON.stringify(res, null, 2));
+        if (cancelled) return;
+        const list = Array.isArray(res.packages) ? res.packages : [];
+        setPackages(list);
+        // Select first category when they arrive
+        if (list.length > 0 && list[0]?.name) {
+          setSelectedCategory(list[0].name);
+          setFocusedCategoryIndex(0);
+        }
+        setPackagesLoading(false);
+        // Prefetch and cache all channels for every category on first load
+        // Removed eager prefetch of all channel lists to speed up initial load.
+        // Channels are now fetched lazily when their category is selected.
+      })
+      .catch((err) => {
+        console.log('[getPackages] API error:', err);
+        if (!cancelled) {
+          setPackages([]);
+          setPackagesLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  // Selected package id = category_id for getChannels (from packages/categories)
+  const selectedPackageId = useMemo(
+    () => categoriesList.find((p) => p.name === selectedCategory)?.id ?? 0,
+    [categoriesList, selectedCategory]
+  );
+
+  const [channels, setChannels] = useState<ChannelUi[]>([]);
+  const [channelsLoading, setChannelsLoading] = useState(true);
+  const [selectedChannel, setSelectedChannel] = useState<ChannelUi | null>(null);
+
+  // Fetch channels when category (package) changes: getChannels.php?category_id=
+  // First category is selected by default; first channel becomes selected when channels load
+  useEffect(() => {
+    let cancelled = false;
+    setChannelsLoading(true);
+    getChannels(selectedPackageId)
+      .then((res) => {
+        if (cancelled) return;
+        const list: ChannelUi[] = (res.channels ?? []).map((c) => ({
+          id: c.id,
+          name: c.name,
+          videoUrl: c.stream_url,
+          logo: c.logo,
+        }));
+        setChannels(list);
+        // First channel in array is selected by default; his content loads in the player
+        const first = list[0];
+        setSelectedChannel(first ?? null);
+        setFocusedChannelIndex(0);
+        setChannelsLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setChannels([]);
+          setSelectedChannel(null);
+          setChannelsLoading(false);
+        }
+      });
+    return () => { cancelled = true; };
+  }, [selectedPackageId, packagesLoading]);
 
   const handleGoHome = useCallback(() => {
     if (router.canGoBack()) {
@@ -112,81 +121,107 @@ export default function TVScreen() {
     }
   }, [router]);
 
-  const player = useVideoPlayer(selectedChannel.videoUrl, player => {
-    player.loop = true;
-    player.volume = 1.0; // Set volume to maximum
-    player.muted = false; // Ensure audio is not muted
-    player.play();
+  const player = useVideoPlayer(selectedChannel?.videoUrl ?? FALLBACK_VIDEO_URL, (p) => {
+    p.loop = true;
+    p.volume = 1.0;
+    p.muted = false;
+    p.play();
   });
 
   // Separate player for fullscreen
-  const fullscreenPlayer = useVideoPlayer(selectedChannel.videoUrl, player => {
-    player.loop = true;
-    player.volume = 1.0; // Set volume to maximum
-    player.muted = false; // Ensure audio is not muted
-    if (showFullscreen) {
-      player.play();
+  const fullscreenPlayer = useVideoPlayer(
+    selectedChannel?.videoUrl ?? FALLBACK_VIDEO_URL,
+    (p) => {
+      p.loop = true;
+      p.volume = 1.0;
+      p.muted = false;
+      if (showFullscreen) p.play();
     }
-  });
+  );
+
+  // Sync main player when selectedChannel changes (from getChannels or user pick)
+  useEffect(() => {
+    if (selectedChannel?.videoUrl) {
+      player.replace(selectedChannel.videoUrl);
+      player.play();
+    } else {
+      player.replace(FALLBACK_VIDEO_URL);
+      player.pause();
+    }
+  }, [selectedChannel, player]);
+
+  // Ensure that whenever the focused index changes (e.g. via remote up/down),
+  // the focused channel becomes the selected/playing channel.
+  useEffect(() => {
+    if (focusedChannelIndex < 0 || focusedChannelIndex >= channels.length) return;
+    const next = channels[focusedChannelIndex];
+    if (!next || selectedChannel?.id === next.id) return;
+    setSelectedChannel(next);
+  }, [focusedChannelIndex, channels, selectedChannel]);
 
   // Sync fullscreen player with main player and pause main video
   useEffect(() => {
+    const url = selectedChannel?.videoUrl ?? FALLBACK_VIDEO_URL;
     if (showFullscreen) {
-      // Pause the main video when entering fullscreen
       player.pause();
-      
-      // Load and play the fullscreen video
-      fullscreenPlayer.replace(selectedChannel.videoUrl);
-      fullscreenPlayer.volume = 1.0; // Ensure volume is set to maximum
-      fullscreenPlayer.muted = false; // Ensure audio is not muted
-      setTimeout(() => {
-        fullscreenPlayer.play();
-      }, 100);
+      fullscreenPlayer.replace(url);
+      fullscreenPlayer.volume = 1.0;
+      fullscreenPlayer.muted = false;
+      setTimeout(() => fullscreenPlayer.play(), 100);
     } else {
-      // Resume the main video when exiting fullscreen
-      player.volume = 1.0; // Ensure volume is set to maximum
-      player.muted = false; // Ensure audio is not muted
+      player.volume = 1.0;
+      player.muted = false;
       player.play();
     }
   }, [showFullscreen, selectedChannel, player, fullscreenPlayer]);
 
-  // Android Back Button Handler
+  // Android Back Button Handler (skip on web where it may not exist)
   useEffect(() => {
+    if (Platform.OS === 'web' || !BackHandler?.addEventListener) return;
     const backAction = () => {
       handleGoHome();
-      return true; // Prevent default back behavior
+      return true;
     };
+    const sub = BackHandler.addEventListener('hardwareBackPress', backAction);
+    return () => sub.remove();
+  }, [handleGoHome]);
 
-    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
+  // Simple navigation for testing: move focus AND select/play that channel
+  const moveChannelFocus = (delta: number) => {
+    setFocusedChannelIndex((prev) => {
+      if (!channels.length) return prev;
+      const len = channels.length;
+      const nextIndex = (prev + delta + len) % len;
+      const nextChannel = channels[nextIndex];
+      if (nextChannel) {
+        setSelectedChannel(nextChannel);
+      }
+      return nextIndex;
+    });
+  };
 
-    return () => backHandler.remove();
-  }, []);
-
-  // Simple navigation for testing
   const handleUpPress = () => {
-    setFocusedChannelIndex(prev => 
-      prev > 0 ? prev - 1 : channels.length - 1
-    );
+    moveChannelFocus(-1);
   };
 
   const handleDownPress = () => {
-    setFocusedChannelIndex(prev => 
-      prev < channels.length - 1 ? prev + 1 : 0
-    );
+    moveChannelFocus(1);
   };
 
   const handleLeftPress = () => {
     setFocusedCategoryIndex(prev => {
-      const newIndex = prev > 0 ? prev - 1 : categories.length - 1;
-      setSelectedCategory(categories[newIndex]);
+      const len = categoriesList.length;
+      const newIndex = len <= 1 ? 0 : prev > 0 ? prev - 1 : len - 1;
+      setSelectedCategory(categoriesList[newIndex]?.name ?? 'All Channels');
       return newIndex;
     });
   };
 
   const handleRightPress = () => {
     setFocusedCategoryIndex(prev => {
-      const newIndex = prev < categories.length - 1 ? prev + 1 : 0;
-      setSelectedCategory(categories[newIndex]);
+      const len = categoriesList.length;
+      const newIndex = len <= 1 ? 0 : prev < len - 1 ? prev + 1 : 0;
+      setSelectedCategory(categoriesList[newIndex]?.name ?? 'All Channels');
       return newIndex;
     });
   };
@@ -209,13 +244,9 @@ export default function TVScreen() {
     setShowFullscreen(false);
   }, []);
 
-  const handleChannelSelect = useCallback((channel: typeof channels[0]) => {
+  const handleChannelSelect = useCallback((channel: ChannelUi) => {
     setSelectedChannel(channel);
-    player.replace(channel.videoUrl);
-    player.volume = 1.0; // Ensure volume is set to maximum
-    player.muted = false; // Ensure audio is not muted
-    player.play();
-  }, [player]);
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -237,76 +268,46 @@ export default function TVScreen() {
   return (
     <>
       <StatusBar hidden={true} />
-      <ImageBackground 
-        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
-        style={styles.container}
-        resizeMode="cover"
-      >
+      <View style={styles.container}>
         {/* Header Bar */}
         <DynamicHeader currentTime={currentTime} />
 
-        {/* Category Tabs */}
-        <View style={styles.categoryContainer}>
-          <TouchableOpacity activeOpacity={0.6} onPress={handleGoHome} style={styles.backButton}>
-            <Text style={styles.backButtonText}>‹</Text>
-          </TouchableOpacity>
-          
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryScroll}>
-            {categories.map((category, index) => (
-              <CategoryTab
-                key={category}
-                category={category}
-                index={index}
-                isActive={selectedCategory === category}
-                onPress={() => {
-                  setSelectedCategory(category);
-                  setFocusedCategoryIndex(index);
+        {packagesLoading ? (
+          /* Loader while categories (packages) API is loading */
+          <View style={styles.loaderOverlay}>
+            <ActivityIndicator size="large" color="#8B1538" />
+            <Text style={styles.loaderText}>Loading categories...</Text>
+          </View>
+        ) : (
+          <>
+            {/* Category Tabs - first in array is selected when they arrive */}
+            <TvCategoryBar
+              categories={categoriesList}
+              selectedCategory={selectedCategory}
+              onBack={handleGoHome}
+              onSelectCategory={(label, index) => {
+                setSelectedCategory(label);
+                setFocusedCategoryIndex(index);
+              }}
+            />
+
+            {/* Main Content - first channel selected by default, his content loads in player */}
+            <View style={styles.mainContent}>
+              <TvChannelList
+                channels={channels}
+                loading={channelsLoading}
+                selectedChannelId={selectedChannel?.id ?? null}
+                focusedIndex={focusedChannelIndex}
+                onSelectChannel={(channel, index) => {
+                  handleChannelSelect(channel as any);
+                  setFocusedChannelIndex(index);
                 }}
               />
-            ))}
-          </ScrollView>
 
-          <TouchableOpacity activeOpacity={0.6} style={styles.nextButton}>
-            <Text style={styles.nextButtonText}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Main Content */}
-        <View style={styles.mainContent}>
-          {/* Channel List - Left */}
-          <View style={styles.channelList}>
-            <FlatList
-              data={channels}
-              keyExtractor={(item) => item.id.toString()}
-              showsVerticalScrollIndicator={false}
-              renderItem={({ item, index }) => (
-                <ChannelItem
-                  channel={item}
-                  index={index}
-                  isActive={selectedChannel.id === item.id}
-                  isFocused={focusedChannelIndex === index}
-                  onPress={() => {
-                    handleChannelSelect(item);
-                    setFocusedChannelIndex(index);
-                  }}
-                />
-              )}
-              removeClippedSubviews={true}
-              initialNumToRender={10}
-              maxToRenderPerBatch={5}
-              windowSize={10}
-            />
-          </View>
-
-              {/* Video Player - Right */}
-              <View style={styles.videoContainer}>
-                <VideoView
-                  player={player}
-                  style={styles.video}
-                  nativeControls={false}
-                />
-              </View>
-        </View>
+              <TvPlayer player={player} loading={channelsLoading} />
+            </View>
+          </>
+        )}
 
         {/* Menu Popup */}
         {showMenuPopup && (
@@ -406,25 +407,9 @@ export default function TVScreen() {
           </>
         )}
 
-        {/* Bottom Control Bar */}
-        <View style={styles.bottomBar}>
-          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleMenuBarPress}>
-            <View style={styles.controlIcon} />
-            <Text style={styles.controlLabel}>MENU BAR</Text>
-          </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleFullscreenPress}>
-            <View style={styles.controlIcon} />
-            <Text style={styles.controlLabel}>FULL SCREEN</Text>
-          </TouchableOpacity>
-          <View style={styles.controlItem}>
-            <View style={styles.controlIcon} />
-            <Text style={styles.controlLabel}>SELECT CATEGORIES</Text>
-          </View>
-          <View style={styles.controlItem}>
-            <View style={styles.controlIcon} />
-            <Text style={styles.controlLabel}>SELECT CHANNEL</Text>
-          </View>
-        </View>
+        {!packagesLoading && (
+          <TvBottomControls onToggleMenu={handleMenuBarPress} onFullscreen={handleFullscreenPress} />
+        )}
 
         {/* Fullscreen Video Modal */}
         {showFullscreen && (
@@ -453,7 +438,7 @@ export default function TVScreen() {
             </View>
           </Modal>
         )}
-      </ImageBackground>
+      </View>
     </>
   );
 }
@@ -512,6 +497,35 @@ const styles = StyleSheet.create({
   },
   weatherIcon: {
     fontSize: 14,
+  },
+  loaderOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 16,
+  },
+  loaderText: {
+    fontSize: 18,
+    color: '#333',
+    fontWeight: '600',
+  },
+  channelListLoader: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  videoLoaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.7)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  videoLoaderText: {
+    fontSize: 18,
+    color: '#fff',
+    fontWeight: '600',
   },
   categoryContainer: {
     flexDirection: 'row',
