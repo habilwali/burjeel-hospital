@@ -5,6 +5,7 @@ import { useRouter } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
 import { getPackages } from '../api/getPackages';
 import { getChannels } from '../api/getChannels';
+import { getWelcomeData } from '../api/getWelcomeData';
 import type { PackageItem } from '../types/packages';
 import TvCategoryBar from '../components/TvCategoryBar';
 import TvChannelList from '../components/TvChannelList';
@@ -35,6 +36,7 @@ export default function TVScreen() {
   const [focusedCategoryIndex, setFocusedCategoryIndex] = useState(0);
   const [showMenuPopup, setShowMenuPopup] = useState(false);
   const [showFullscreen, setShowFullscreen] = useState(false);
+  const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
 
   // Categories from getPackages API; fallback when loading or empty
   const categoriesList = useMemo(
@@ -68,6 +70,18 @@ export default function TVScreen() {
           setPackages([]);
           setPackagesLoading(false);
         }
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    getWelcomeData()
+      .then((data) => {
+        if (!cancelled) setWelcomeData(data);
+      })
+      .catch(() => {
+        // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
   }, []);
@@ -226,18 +240,29 @@ export default function TVScreen() {
     });
   };
 
+  const handleFullscreenPress = useCallback(() => {
+    // Only go fullscreen if there's a selected channel
+    if (selectedChannel) {
+      setShowFullscreen(true);
+    }
+  }, [selectedChannel]);
+
   const handleSelectPress = () => {
     if (focusedChannelIndex >= 0 && focusedChannelIndex < channels.length) {
-      handleChannelSelect(channels[focusedChannelIndex]);
+      const focusedChannel = channels[focusedChannelIndex];
+      
+      // If the focused channel is already selected, go fullscreen
+      if (selectedChannel && selectedChannel.id === focusedChannel.id) {
+        handleFullscreenPress();
+      } else {
+        // Otherwise, select the focused channel
+        handleChannelSelect(focusedChannel);
+      }
     }
   };
 
   const handleMenuBarPress = useCallback(() => {
     setShowMenuPopup(prev => !prev);
-  }, []);
-
-  const handleFullscreenPress = useCallback(() => {
-    setShowFullscreen(true);
   }, []);
 
   const handleCloseFullscreen = useCallback(() => {
@@ -270,7 +295,7 @@ export default function TVScreen() {
       <StatusBar hidden={true} />
       <View style={styles.container}>
         {/* Header Bar */}
-        <DynamicHeader currentTime={currentTime} />
+        <DynamicHeader currentTime={currentTime} roomNumber={welcomeData?.room_number} />
 
         {packagesLoading ? (
           /* Loader while categories (packages) API is loading */

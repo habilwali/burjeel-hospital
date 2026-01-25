@@ -10,7 +10,6 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import { WebView } from 'react-native-webview';
-import DynamicHeader from '../components/DynamicHeader';
 
 const { width, height } = Dimensions.get('window');
 
@@ -147,7 +146,6 @@ const locations: Location[] = [
 export default function MapScreen() {
   const [selectedLocation, setSelectedLocation] = useState<Location | null>(null);
   const [zoomLevel, setZoomLevel] = useState(15);
-  const [currentTime, setCurrentTime] = useState(new Date());
   const webViewRef = React.useRef<any>(null);
 
   const handleGoBack = () => {
@@ -182,7 +180,8 @@ export default function MapScreen() {
   };
 
   const renderMap = () => {
-    // Simple Google Maps search embed - will show pin for Burjeel Hospital Al Quoz
+    // Google Maps embed with pin for Burjeel Hospital, Al Najdah Street, Abu Dhabi
+    const mapQuery = encodeURIComponent('Burjeel Hospital Al Najdah Street Abu Dhabi');
     const mapHtml = `
       <!DOCTYPE html>
       <html>
@@ -194,19 +193,21 @@ export default function MapScreen() {
               padding: 0;
               height: 100%;
               width: 100%;
+              overflow: hidden;
             }
             #map {
               height: 100%;
               width: 100%;
+              border: none;
             }
           </style>
         </head>
         <body>
           <iframe
             id="map"
-            src="https://maps.google.com/maps?q=Burjeel+Hospital+Al+Quoz+Dubai&t=&z=${zoomLevel}&ie=UTF8&iwloc=&output=embed"
+            src="https://maps.google.com/maps?q=${mapQuery}&t=&z=${zoomLevel}&ie=UTF8&iwloc=&output=embed"
             frameborder="0"
-            style="border:0; width: 100%; height: 100%;"
+            style="border:0; width: 100%; height: 100%; margin: 0; padding: 0;"
             allowfullscreen=""
             loading="lazy">
           </iframe>
@@ -216,6 +217,7 @@ export default function MapScreen() {
     
     return (
       <WebView
+        key={zoomLevel}
         ref={webViewRef}
         source={{ html: mapHtml }}
         style={styles.map}
@@ -223,6 +225,7 @@ export default function MapScreen() {
         domStorageEnabled={true}
         startInLoadingState={true}
         originWhitelist={['*']}
+        scrollEnabled={false}
       />
     );
   };
@@ -276,45 +279,60 @@ export default function MapScreen() {
   return (
     <>
       <StatusBar hidden={true} />
-      <ImageBackground
-        source={{ uri: 'https://lh3.googleusercontent.com/gps-cs-s/AG0ilSzY1Sf3GyQaP0mvmtxEKt4WM1JcmQid35iHy0TrWAhm7aTQy6ylNqQou2_W1GBHTPRWWh-EVwQAkK4ZvgJ9elmqjaZWqch6h_Llf9rXFCo2KI-tkiSHdgLNTkjQhnJBDJWL2DtauA=s1360-w1360-h1020-rw' }}
-        style={styles.container}
-        resizeMode="cover"
-      >
-        {/* Header Bar */}
-        <DynamicHeader currentTime={currentTime} />
-
-        {/* Main Content */}
+      <View style={styles.container}>
+        {/* Main Content - Full Screen Map */}
         <View style={styles.mainContent}>
-          <View style={styles.mapPanel}>
-            {renderMap()}
-          </View>
+          {renderMap()}
         </View>
 
-        {/* Bottom Bar */}
+        {/* Bottom Control Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
-            <View style={styles.controlButton} />
-            <Text style={styles.controlLabel}>BACK</Text>
-          </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleZoomIn}>
-            <View style={styles.controlButton} />
+            <View style={[styles.sphericalButton, styles.zoomInButton]}>
+              <Text style={styles.zoomButtonText}>+</Text>
+            </View>
             <Text style={styles.controlLabel}>ZOOM IN</Text>
           </TouchableOpacity>
           <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleZoomOut}>
-            <View style={styles.controlButton} />
+            <View style={[styles.sphericalButton, styles.zoomOutButton]}>
+              <Text style={styles.zoomButtonText}>−</Text>
+            </View>
             <Text style={styles.controlLabel}>ZOOM OUT</Text>
           </TouchableOpacity>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
-            <Text style={styles.controlLabel}>ZOOM: {zoomLevel}</Text>
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.dpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.dpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
+            <Text style={styles.controlLabel}>NAVIGATE</Text>
           </View>
-          <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
-            <Text style={styles.controlLabel}>MENU BAR</Text>
-          </View>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
+            <View style={styles.sphericalButton}>
+              <View style={styles.backIconContainer}>
+                <Text style={styles.backButtonText}>←</Text>
+              </View>
+            </View>
+            <Text style={styles.controlLabel}>BACK</Text>
+          </TouchableOpacity>
         </View>
-      </ImageBackground>
+      </View>
     </>
   );
 }
@@ -324,6 +342,7 @@ const styles = StyleSheet.create({
     flex: 1,
     width: width,
     height: height,
+    backgroundColor: '#000000',
   },
   headerBar: {
     flexDirection: 'row',
@@ -361,24 +380,13 @@ const styles = StyleSheet.create({
   },
   mainContent: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingVertical: 20,
-  },
-  mapPanel: {
-    flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    position: 'relative',
+    width: '100%',
+    height: '100%',
   },
   map: {
     flex: 1,
-    borderRadius: 12,
+    width: '100%',
+    height: '100%',
   },
   mapFallback: {
     flex: 1,
@@ -526,19 +534,102 @@ const styles = StyleSheet.create({
   controlItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginHorizontal: 5,
   },
-  controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#90A4AE',
-    borderWidth: 2,
-    borderColor: '#666',
+  sphericalButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#B0B0B0',
+  },
+  zoomInButton: {
+    backgroundColor: '#FF6B6B',
+    borderColor: '#FF5252',
+  },
+  zoomOutButton: {
+    backgroundColor: '#4CAF50',
+    borderColor: '#45A049',
+  },
+  zoomButtonText: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+    textAlign: 'center',
+    lineHeight: 24,
+  },
+  menuButtonText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  dpadContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 12,
+  },
+  dpadArrow: {
+    fontSize: 9,
+    color: '#000000',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  dpadArrowPlaceholder: {
+    width: 12,
+  },
+  dpadCenter: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#808080',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 0,
+  },
+  dpadOK: {
+    fontSize: 5,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 12,
   },
   controlLabel: {
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
+    marginLeft: 8,
+  },
+  backIconContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    includeFontPadding: false,
+    textAlign: 'center',
+    lineHeight: 28,
+    marginBottom: 10,
   },
 });

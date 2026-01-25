@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { router } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
+import { getWelcomeData } from '../api/getWelcomeData';
 
 const { width, height } = Dimensions.get('window');
 
@@ -50,6 +51,19 @@ export default function MessagesScreen() {
   const [currentTime] = useState(new Date());
   const [selectedMessageIndex, setSelectedMessageIndex] = useState(1);
   const [contentScrollPosition, setContentScrollPosition] = useState(0);
+  const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getWelcomeData()
+      .then((data) => {
+        if (!cancelled) setWelcomeData(data);
+      })
+      .catch(() => {
+        // Keep null on error; header shows "—"
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGoBack = () => {
     router.back();
@@ -103,52 +117,48 @@ export default function MessagesScreen() {
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <DynamicHeader currentTime={currentTime} />
+        <DynamicHeader currentTime={currentTime} roomNumber={welcomeData?.room_number} />
 
         {/* Message Timeline */}
-        <View style={styles.timelineContainer}>
-          <TouchableOpacity 
-            activeOpacity={0.6}
-            style={styles.arrowButton}
-            onPress={handlePreviousMessage}
-            disabled={selectedMessageIndex === 0}
-          >
-            <Text style={[styles.arrowText, selectedMessageIndex === 0 && styles.arrowDisabled]}>‹</Text>
-          </TouchableOpacity>
-
-          {messages.map((message, index) => (
-            <TouchableOpacity
-              activeOpacity={0.6}
-              key={message.id}
-              style={[
-                styles.timelineItem,
-                selectedMessageIndex === index && styles.timelineItemActive
-              ]}
-              onPress={() => setSelectedMessageIndex(index)}
+        <View style={styles.tabSection}>
+          <View style={styles.tabRowContainer}>
+            {/* Left Navigation Arrow */}
+            <TouchableOpacity 
+              style={styles.leftArrow}
+              onPress={handlePreviousMessage}
+              disabled={selectedMessageIndex === 0}
             >
-              <Text style={[
-                styles.timelineDate,
-                selectedMessageIndex === index && styles.timelineTextActive
-              ]}>
-                {message.date}
-              </Text>
-              <Text style={[
-                styles.timelineTime,
-                selectedMessageIndex === index && styles.timelineTextActive
-              ]}>
-                {message.time}
-              </Text>
+              <Text style={[styles.arrowText, selectedMessageIndex === 0 && styles.arrowDisabled]}>‹</Text>
             </TouchableOpacity>
-          ))}
 
-          <TouchableOpacity 
-            activeOpacity={0.6}
-            style={styles.arrowButton}
-            onPress={handleNextMessage}
-            disabled={selectedMessageIndex === messages.length - 1}
-          >
-            <Text style={[styles.arrowText, selectedMessageIndex === messages.length - 1 && styles.arrowDisabled]}>›</Text>
-          </TouchableOpacity>
+            {/* Tab Navigation */}
+            <View style={styles.tabContainer}>
+              {messages.map((message, index) => (
+                <TouchableOpacity
+                  activeOpacity={0.6}
+                  key={message.id}
+                  style={[
+                    styles.tab,
+                    selectedMessageIndex === index ? styles.activeTab : styles.inactiveTab
+                  ]}
+                  onPress={() => setSelectedMessageIndex(index)}
+                >
+                  <Text style={selectedMessageIndex === index ? styles.activeTabText : styles.inactiveTabText}>
+                    {message.date}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Right Navigation Arrow */}
+            <TouchableOpacity 
+              style={styles.rightArrow}
+              onPress={handleNextMessage}
+              disabled={selectedMessageIndex === messages.length - 1}
+            >
+              <Text style={[styles.arrowText, selectedMessageIndex === messages.length - 1 && styles.arrowDisabled]}>›</Text>
+            </TouchableOpacity>
+          </View>
         </View>
 
         {/* Main Content */}
@@ -183,15 +193,57 @@ export default function MessagesScreen() {
         {/* Bottom Bar */}
         <View style={styles.bottomBar}>
           <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <Text style={styles.menuButtonText}>MENU</Text>
+            </View>
             <Text style={styles.controlLabel}>MENU BAR</Text>
           </TouchableOpacity>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.dpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.dpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>SELECT CATEGORY</Text>
           </View>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.scrollDpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.scrollDpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>SCROLL CONTENT</Text>
           </View>
         </View>
@@ -234,68 +286,74 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  timelineContainer: {
+  tabSection: {
+    paddingHorizontal: 15,
+    paddingTop: 10,
+    paddingBottom: 5,
+  },
+  tabRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    gap: 10,
+    marginBottom: 5,
+    width: '100%',
   },
-  arrowButton: {
-    padding: 10,
+  leftArrow: {
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  rightArrow: {
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
   },
   arrowText: {
-    fontSize: 32,
-    color: '#333',
+    fontSize: 40,
+    color: '#000000',
     fontWeight: 'bold',
   },
   arrowDisabled: {
     opacity: 0.3,
   },
-  timelineItem: {
-    paddingHorizontal: 25,
-    paddingVertical: 10,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    minWidth: 180,
-    alignItems: 'center',
+  tabContainer: {
+    flexDirection: 'row',
+    flex: 1,
   },
-  timelineItemActive: {
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  activeTab: {
     backgroundColor: '#8B1538',
   },
-  timelineDate: {
-    fontSize: 14,
+  inactiveTab: {
+    backgroundColor: '#FFFFFF',
+  },
+  activeTabText: {
+    color: 'white',
+    fontSize: 16,
     fontWeight: 'bold',
-    color: '#333',
   },
-  timelineTime: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 2,
-  },
-  timelineTextActive: {
-    color: '#fff',
+  inactiveTabText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   mainContent: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingVertical: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingTop: 0,
+    paddingBottom: 15,
   },
   messageCard: {
-    width: '80%',
-    maxWidth: 800,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    padding: 40,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
-    minHeight: 300,
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 30,
     position: 'relative',
   },
   scrollView: {
@@ -345,20 +403,82 @@ const styles = StyleSheet.create({
   controlItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginHorizontal: 5,
   },
-  controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#90A4AE',
-    borderWidth: 2,
-    borderColor: '#666',
+  sphericalButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#B0B0B0',
+  },
+  menuButtonText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  dpadContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 12,
+  },
+  dpadArrow: {
+    fontSize: 9,
+    color: '#000000',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  scrollDpadArrow: {
+    fontSize: 9,
+    color: '#808080',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+    opacity: 0.5,
+  },
+  dpadArrowPlaceholder: {
+    width: 12,
+  },
+  dpadCenter: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#808080',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 0,
+  },
+  dpadOK: {
+    fontSize: 5,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 12,
   },
   controlLabel: {
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

@@ -1,30 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar, ScrollView } from 'react-native';
-import { VideoView, useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
+import { getFlights } from '../api/getFlights';
+import type { Flight } from '../types/flight';
 
 const { width, height } = Dimensions.get('window');
 
-export default function ServicesScreen() {
+export default function FlightScreen() {
   const router = useRouter();
   const [currentTime] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('Information 1');
-  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [activeTab, setActiveTab] = useState<'Arrival' | 'Departure'>('Arrival');
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
-  
-  const player = useVideoPlayer('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
-
-  useEffect(() => {
-    const subscription = player.addListener('playingChange', (event) => {
-      setIsVideoPlaying(event.isPlaying);
-    });
-
-    return () => {
-      subscription?.remove();
-    };
-  }, [player]);
+  const [arrivalFlights, setArrivalFlights] = useState<Flight[]>([]);
+  const [departureFlights, setDepartureFlights] = useState<Flight[]>([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,91 +29,58 @@ export default function ServicesScreen() {
     return () => { cancelled = true; };
   }, []);
 
-  const formatDate = (date: Date) => {
-    return date.toLocaleDateString('en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: false
-    });
-  };
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    
+    console.log('[FlightScreen] Fetching flight data...');
+    
+    // Fetch both arrival and departure flights
+    Promise.all([
+      getFlights('OMDB', 'arrival'),
+      getFlights('OMDB', 'departure'),
+    ])
+      .then(([arrivalData, departureData]) => {
+        if (!cancelled) {
+          console.log('[FlightScreen] Arrival flights received:', arrivalData.flights.length);
+          console.log('[FlightScreen] Departure flights received:', departureData.flights.length);
+          setArrivalFlights(arrivalData.flights);
+          setDepartureFlights(departureData.flights);
+          setLoading(false);
+        }
+      })
+      .catch((error) => {
+        console.error('[FlightScreen] Error fetching flights:', error);
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+    
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGoBack = () => {
     router.back();
   };
 
-  const handleTabPress = (tabName: string) => {
+  const handleTabPress = (tabName: 'Arrival' | 'Departure') => {
     setActiveTab(tabName);
-    if (tabName === 'Information 2') {
-      // Force video to restart and play
-      player.replace('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
-      setTimeout(() => {
-        player.play();
-      }, 200);
-    } else {
-      player.pause();
-    }
   };
 
-
-  const renderContent = () => {
-    switch (activeTab) {
-      case 'Information 1':
-        return (
-          <View style={styles.twoColumnLayout}>
-            {/* Left Side - Image Placeholder */}
-            <View style={styles.leftImageSection}>
-              <View style={styles.imageOnlyBox}>
-                <Text style={styles.imageOnlyText}>Image only</Text>
-              </View>
-            </View>
-            
-            {/* Right Side - Content */}
-            <View style={styles.rightContentSection}>
-              <Text style={styles.contentText}>
-                VPS Healthcare Group's premium healthcare brand, Burjeel is the most comprehensive private tertiary healthcare provider in UAE. The Burjeel hospitals have been at the forefront of healthcare services in the region and have emerged as the Center of Medical Excellence across the UAE. Over the years, Burjeel has built a strong sense of trust in the hearts of every patient we came across by serving them in all walks of life along with state-of-the-art facilities, and in-depth expertise.
-              </Text>
-            </View>
-          </View>
-        );
-      case 'Information 2':
-        return (
-          <View style={styles.videoContainer}>
-            <VideoView
-              player={player}
-              style={styles.videoPlayer}
-              nativeControls={false}
-            />
-          </View>
-        );
-      case 'Information 3':
-        return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.contentTitle}>Information 3</Text>
-            <Text style={styles.contentText}>
-              Our specialized departments include Cardiology, Neurology, Oncology, Pediatrics, and Emergency Medicine. Each department is equipped with the latest medical technology and staffed by internationally trained specialists.
-            </Text>
-            <View style={styles.servicesList}>
-              <Text style={styles.serviceItem}>• Emergency Services 24/7</Text>
-              <Text style={styles.serviceItem}>• Advanced Diagnostic Imaging</Text>
-              <Text style={styles.serviceItem}>• Surgical Excellence</Text>
-              <Text style={styles.serviceItem}>• Rehabilitation Services</Text>
-              <Text style={styles.serviceItem}>• Preventive Care Programs</Text>
-            </View>
-          </View>
-        );
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'On-Time':
+        return '#4CAF50';
+      case 'Delayed':
+        return '#FF9800';
+      case 'Cancelled':
+        return '#F44336';
       default:
-        return null;
+        return '#333';
     }
   };
+
+  const currentFlights = activeTab === 'Arrival' ? arrivalFlights : departureFlights;
 
   return (
     <>
@@ -143,7 +101,7 @@ export default function ServicesScreen() {
             <TouchableOpacity 
               style={styles.leftArrow}
               onPress={() => {
-                const tabs = ['Information 1', 'Information 2', 'Information 3'];
+                const tabs = ['Arrival', 'Departure'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
                 handleTabPress(tabs[prevIndex]);
@@ -156,31 +114,21 @@ export default function ServicesScreen() {
             <View style={styles.tabContainer}>
               <TouchableOpacity 
                 activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 1' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 1')}
+                style={[styles.tab, activeTab === 'Arrival' ? styles.activeTab : styles.inactiveTab]}
+                onPress={() => handleTabPress('Arrival')}
               >
-                <Text style={activeTab === 'Information 1' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 1
+                <Text style={activeTab === 'Arrival' ? styles.activeTabText : styles.inactiveTabText}>
+                  Arrival
                 </Text>
               </TouchableOpacity>
               
               <TouchableOpacity 
                 activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 2' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 2')}
+                style={[styles.tab, activeTab === 'Departure' ? styles.activeTab : styles.inactiveTab]}
+                onPress={() => handleTabPress('Departure')}
               >
-                <Text style={activeTab === 'Information 2' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 2
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 3' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 3')}
-              >
-                <Text style={activeTab === 'Information 3' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 3
+                <Text style={activeTab === 'Departure' ? styles.activeTabText : styles.inactiveTabText}>
+                  Departure
                 </Text>
               </TouchableOpacity>
             </View>
@@ -189,7 +137,7 @@ export default function ServicesScreen() {
             <TouchableOpacity 
               style={styles.rightArrow}
               onPress={() => {
-                const tabs = ['Information 1', 'Information 2', 'Information 3'];
+                const tabs = ['Arrival', 'Departure'];
                 const currentIndex = tabs.indexOf(activeTab);
                 const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
                 handleTabPress(tabs[nextIndex]);
@@ -199,10 +147,42 @@ export default function ServicesScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Dynamic Content Area */}
+          {/* Flight Table */}
           <View style={styles.contentArea}>
-            {renderContent()}
-            
+            {/* Table Header */}
+            <View style={styles.tableHeader}>
+              <Text style={[styles.headerCell, { flex: 1.2 }]}>Date</Text>
+              <Text style={[styles.headerCell, { flex: 1 }]}>Flight #</Text>
+              <Text style={[styles.headerCell, { flex: 2.5 }]}>From</Text>
+              <Text style={[styles.headerCell, { flex: 1.5 }]}>Airline</Text>
+              <Text style={[styles.headerCell, { flex: 0.8 }]}>Terminal</Text>
+              <Text style={[styles.headerCell, { flex: 1 }]}>Status</Text>
+            </View>
+
+            {/* Table Rows */}
+            <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={false}>
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>Loading flights...</Text>
+                </View>
+              ) : currentFlights.length === 0 ? (
+                <View style={styles.loadingContainer}>
+                  <Text style={styles.loadingText}>No flights available</Text>
+                </View>
+              ) : (
+                currentFlights.map((flight) => (
+                  <View key={flight.id} style={styles.tableRow}>
+                    <Text style={[styles.cell, { flex: 1.2 }]}>{flight.date}</Text>
+                    <Text style={[styles.cell, { flex: 1 }]}>{flight.flightNumber}</Text>
+                    <Text style={[styles.cell, { flex: 2.5 }]} numberOfLines={2}>{flight.from}</Text>
+                    <Text style={[styles.cell, { flex: 1.5 }]}>{flight.airline}</Text>
+                    <Text style={[styles.cell, { flex: 0.8 }]}>{flight.terminal}</Text>
+                    <Text style={[styles.cell, { flex: 1, color: getStatusColor(flight.status) }]}>{flight.status}</Text>
+                  </View>
+                ))
+              )}
+            </ScrollView>
+
             {/* Bottom Right Down Arrow */}
             <TouchableOpacity style={styles.bottomRightArrow}>
               <View style={{ transform: [{ rotate: '90deg' }] }}>
@@ -214,12 +194,12 @@ export default function ServicesScreen() {
 
         {/* Bottom Control Bar */}
         <View style={styles.bottomBar}>
-          <View style={styles.controlItem}>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
             <View style={styles.sphericalButton}>
               <Text style={styles.menuButtonText}>MENU</Text>
             </View>
             <Text style={styles.controlLabel}>MENU BAR</Text>
-          </View>
+          </TouchableOpacity>
           <View style={styles.controlItem}>
             <View style={styles.sphericalButton}>
               <View style={styles.dpadContainer}>
@@ -244,14 +224,6 @@ export default function ServicesScreen() {
             </View>
             <Text style={styles.controlLabel}>SELECT CATEGORY</Text>
           </View>
-          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
-            <View style={styles.sphericalButton}>
-              <View style={styles.backIconContainer}>
-                <Text style={styles.backButtonText}>←</Text>
-              </View>
-            </View>
-            <Text style={styles.controlLabel}>BACK</Text>
-          </TouchableOpacity>
           <View style={styles.controlItem}>
             <View style={styles.sphericalButton}>
               <View style={styles.dpadContainer}>
@@ -287,40 +259,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: width,
     height: height,
-  },
-  headerBar: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  headerLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  logoText: {
-    color: '#4A90E2',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginRight: 15,
-  },
-  hospitalText: {
-    color: '#8B1538',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  headerRight: {
-    flex: 1,
-    alignItems: 'flex-end',
-  },
-  headerInfo: {
-    color: '#333',
-    fontSize: 14,
-    fontWeight: '500',
   },
   mainContent: {
     flex: 1,
@@ -392,87 +330,34 @@ const styles = StyleSheet.create({
     padding: 15,
     position: 'relative',
   },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  twoColumnLayout: {
+  tableHeader: {
     flexDirection: 'row',
-    flex: 1,
-    alignItems: 'flex-start',
-    overflow: 'hidden',
+    borderBottomWidth: 2,
+    borderBottomColor: '#8B1538',
+    paddingBottom: 10,
+    marginBottom: 10,
   },
-  leftImageSection: {
-    width: '45%',
-    justifyContent: 'flex-start',
-    alignItems: 'center',
-    marginRight: 10,
-    height: '100%',
-    paddingTop: 15,
-  },
-  rightContentSection: {
-    flex: 1,
-    justifyContent: 'flex-start',
-    paddingLeft: 10,
-    paddingTop: 15,
-  },
-  imageOnlyBox: {
-    width: '100%',
-    height: '85%',
-    backgroundColor: '#2A2A2A',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  imageOnlyText: {
-    color: 'white',
-    fontSize: 18,
+  headerCell: {
+    fontSize: 14,
     fontWeight: 'bold',
-  },
-  contentTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#8B1538',
-    marginBottom: 20,
-    textAlign: 'left',
-  },
-  contentText: {
-    fontSize: 16,
-    color: '#000000',
-    lineHeight: 24,
-    textAlign: 'left',
-  },
-  servicesList: {
-    marginTop: 10,
-  },
-  serviceItem: {
-    fontSize: 16,
     color: '#333',
-    marginBottom: 8,
-    paddingLeft: 10,
+    textAlign: 'center',
   },
-  videoContainer: {
+  tableBody: {
     flex: 1,
-    backgroundColor: '#000',
-    borderRadius: 12,
-    overflow: 'hidden',
   },
-  videoPlayer: {
-    width: '100%',
-    height: '100%',
-  },
-  playButtonOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    justifyContent: 'center',
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e0e0e0',
+    paddingVertical: 12,
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.3)',
   },
-  playButtonIcon: {
-    fontSize: 60,
-    color: 'white',
+  cell: {
+    fontSize: 13,
+    color: '#333',
+    textAlign: 'center',
+    marginHorizontal: 5,
   },
   bottomBar: {
     flexDirection: 'row',
@@ -557,36 +442,21 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     lineHeight: 12,
   },
-  backIconContainer: {
-    width: '100%',
-    height: '100%',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButtonText: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#000000',
-    includeFontPadding: false,
-    textAlign: 'center',
-    lineHeight: 28,
-    marginBottom: 10,
-  },
-  scrollArrowsContainer: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  scrollArrow: {
-    fontSize: 10,
-    color: '#000000',
-    fontWeight: 'bold',
-    height: 12,
-    lineHeight: 12,
-  },
   controlLabel: {
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });

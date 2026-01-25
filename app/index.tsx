@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { StyleSheet, View, Dimensions, StatusBar } from 'react-native';
 import { useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import DynamicHeader from '../components/DynamicHeader';
 import { getBackgroundVideos, toAbsoluteVideoUrl } from '../api/getBackgroundVideos';
 import { getWelcomeData } from '../api/getWelcomeData';
@@ -62,13 +63,13 @@ export default function HomeScreen() {
   // Memoize menuItems to prevent re-creation
   const menuItems: HomeMenuItem[] = useMemo(
     () => [
-      { id: 1, icon: '📺', label: 'TV', color: '#8B1538', route: '/tv' },
-      { id: 2, icon: 'ℹ️', label: 'INFORMATION', color: '#8B1538', route: '/information' },
-      { id: 3, icon: '📱', label: 'CHROMECAST', color: '#8B1538', route: '/chromecast' },
-      { id: 4, icon: '✉️', label: 'MESSAGES', color: '#8B1538', route: '/messages' },
-      { id: 5, icon: '📍', label: 'MAP', color: '#8B1538', route: '/map' },
-      { id: 6, icon: '🌡️', label: 'WEATHER', color: '#8B1538', route: '/weather' },
-      { id: 7, icon: '✈️', label: 'FLIGHT', color: '#8B1538', route: '/flight' },
+      { id: 1, icon: <MaterialIcons name="tv" size={50} color="white" />, label: 'TV', color: '#8B1538', route: '/tv' },
+      { id: 2, icon: <Ionicons name="information-circle" size={50} color="white" />, label: 'INFORMATION', color: '#8B1538', route: '/information' },
+      { id: 3, icon: <MaterialIcons name="cast" size={50} color="white" />, label: 'CHROMECAST', color: '#8B1538', route: '/chromecast' },
+      { id: 4, icon: <MaterialIcons name="mail" size={50} color="white" />, label: 'MESSAGES', color: '#8B1538', route: '/messages' },
+      { id: 5, icon: <MaterialIcons name="place" size={50} color="white" />, label: 'MAP', color: '#8B1538', route: '/map' },
+      { id: 6, icon: <Ionicons name="cloud" size={50} color="white" />, label: 'WEATHER', color: '#8B1538', route: '/weather' },
+      { id: 7, icon: <Ionicons name="airplane" size={50} color="white" />, label: 'FLIGHT', color: '#8B1538', route: '/flight' },
     ],
     []
   );

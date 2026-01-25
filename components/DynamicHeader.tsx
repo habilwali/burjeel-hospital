@@ -65,20 +65,22 @@ const styles = StyleSheet.create({
   },
   infoSection: { 
     flexDirection: 'row', 
-    alignItems: 'center', 
-    gap: 15 
+    alignItems: 'center',
   },
   infoText: { 
     fontSize: 14, 
     color: '#000000', 
-    fontWeight: '500' 
+    fontWeight: '500',
+    marginHorizontal: 7.5,
   },
   separator: { 
     fontSize: 14, 
-    color: '#000000' 
+    color: '#000000',
+    marginHorizontal: 0,
   },
   weatherIcon: { 
-    fontSize: 16 
+    fontSize: 16,
+    marginHorizontal: 7.5,
   },
 });
 

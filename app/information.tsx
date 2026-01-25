@@ -1,13 +1,27 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar } from 'react-native';
 import { useRouter } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
+import { getWelcomeData } from '../api/getWelcomeData';
 
 const { width, height } = Dimensions.get('window');
 
 export default function InformationScreen() {
   const router = useRouter();
   const [currentTime] = useState(new Date());
+  const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getWelcomeData()
+      .then((data) => {
+        if (!cancelled) setWelcomeData(data);
+      })
+      .catch(() => {
+        // Keep null on error; header shows "—"
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -48,7 +62,7 @@ export default function InformationScreen() {
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <DynamicHeader currentTime={currentTime} />
+        <DynamicHeader currentTime={currentTime} roomNumber={welcomeData?.room_number} />
 
         {/* Main Content */}
         <View style={styles.mainContent}>
@@ -96,23 +110,89 @@ export default function InformationScreen() {
         {/* Bottom Control Bar */}
         <View style={styles.bottomBar}>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <Text style={styles.menuButtonText}>LANG</Text>
+            </View>
             <Text style={styles.controlLabel}>LANGUAGE</Text>
           </View>
           <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.backIconContainer}>
+                <Text style={styles.backButtonText}>←</Text>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>BACK</Text>
           </TouchableOpacity>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.dpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.dpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>SCROLL LEFT/RIGHT</Text>
           </View>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.scrollDpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.scrollDpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>SCROLL UP/DOWN</Text>
           </View>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.dpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.dpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
             <Text style={styles.controlLabel}>OK   SELECT</Text>
           </View>
         </View>
@@ -237,19 +317,96 @@ const styles = StyleSheet.create({
   controlItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginHorizontal: 5,
   },
-  controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#90A4AE',
-    borderWidth: 2,
-    borderColor: '#666',
+  sphericalButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#B0B0B0',
+  },
+  menuButtonText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  dpadContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 12,
+  },
+  dpadArrow: {
+    fontSize: 9,
+    color: '#000000',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  scrollDpadArrow: {
+    fontSize: 9,
+    color: '#808080',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+    opacity: 0.5,
+  },
+  dpadArrowPlaceholder: {
+    width: 12,
+  },
+  dpadCenter: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#808080',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 0,
+  },
+  dpadOK: {
+    fontSize: 5,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  backIconContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    includeFontPadding: false,
+    textAlign: 'center',
+    lineHeight: 28,
+    marginBottom: 10,
   },
   controlLabel: {
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
+    marginLeft: 8,
   },
 });

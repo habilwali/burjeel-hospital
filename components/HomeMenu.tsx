@@ -5,7 +5,7 @@ const { width } = Dimensions.get('window');
 
 export type HomeMenuItem = {
   id: number;
-  icon: string;
+  icon: string | React.ReactNode;
   label: string;
   color: string;
   route: string;
@@ -71,7 +71,17 @@ const HomeMenu = memo(({ items, onPressItem }: Props) => {
                 onPress={() => onPressItem(item)}
                 onFocus={() => setFocusedIndex(index)}
               >
-                <Text style={styles.menuIcon}>{item.icon}</Text>
+                {typeof item.icon === 'string' ? (
+                  <>
+                    <Text style={styles.menuIcon}>{item.icon}</Text>
+                    <View style={styles.iconLine} />
+                  </>
+                ) : (
+                  <>
+                    <View style={styles.menuIconContainer}>{item.icon}</View>
+                    <View style={styles.iconLine} />
+                  </>
+                )}
                 <Text style={styles.menuLabel}>{item.label}</Text>
               </TouchableOpacity>
             ))}
@@ -138,7 +148,14 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#000',
   },
-  menuIcon: { fontSize: 40, marginBottom: 10 },
+  menuIcon: { fontSize: 50, marginBottom: 8 },
+  menuIconContainer: { marginBottom: 8, justifyContent: 'center', alignItems: 'center' },
+  iconLine: {
+    width: 40,
+    height: 2,
+    backgroundColor: 'white',
+    marginBottom: 8,
+  },
   menuLabel: { color: 'white', fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
   arrowButton: {
     width: 40,

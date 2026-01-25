@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,76 +8,61 @@ import {
   ImageBackground,
   StatusBar,
   ScrollView,
+  ActivityIndicator,
 } from 'react-native';
 import { router } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
+import { getWelcomeData } from '../api/getWelcomeData';
+import { getWeather } from '../api/getWeather';
+import type { Region } from '../types/weather';
 
 const { width, height } = Dimensions.get('window');
-
-interface City {
-  name: string;
-  time: string;
-  weather: string;
-  temperature: string;
-  icon: string;
-}
-
-interface Region {
-  name: string;
-  cities: City[];
-}
-
-const weatherData: Region[] = [
-  {
-    name: 'North Asia',
-    cities: [
-      { name: 'BEIJING', time: '16 Feb I 17:52', weather: 'Cloudy', temperature: '-4°C to 8°C', icon: '☁️' },
-      { name: 'SHANGHAI', time: '16 Feb I 17:52', weather: 'Sunny', temperature: '10°C to 18°C', icon: '☀️' },
-      { name: 'TOKYO', time: '16 Feb I 18:52', weather: 'Sunny', temperature: '5°C to 13°C', icon: '☀️' },
-      { name: 'SEOUL', time: '16 Feb I 18:52', weather: 'Rainy', temperature: '-1°C to 2°C', icon: '🌧️' },
-      { name: 'HONG KONG', time: '16 Feb I 17:52', weather: 'Sunny', temperature: '13°C to 21°C', icon: '☀️' },
-    ],
-  },
-  {
-    name: 'South Asia',
-    cities: [
-      { name: 'DUBAI', time: '16 Feb I 15:52', weather: 'Sunny', temperature: '18°C to 28°C', icon: '☀️' },
-      { name: 'ABU DHABI', time: '16 Feb I 15:52', weather: 'Sunny', temperature: '17°C to 27°C', icon: '☀️' },
-      { name: 'DELHI', time: '16 Feb I 17:22', weather: 'Cloudy', temperature: '12°C to 24°C', icon: '☁️' },
-      { name: 'MUMBAI', time: '16 Feb I 17:22', weather: 'Sunny', temperature: '22°C to 31°C', icon: '☀️' },
-      { name: 'BANGKOK', time: '16 Feb I 18:52', weather: 'Rainy', temperature: '24°C to 32°C', icon: '🌧️' },
-    ],
-  },
-  {
-    name: 'Middle East',
-    cities: [
-      { name: 'RIYADH', time: '16 Feb I 14:52', weather: 'Sunny', temperature: '15°C to 26°C', icon: '☀️' },
-      { name: 'DOHA', time: '16 Feb I 14:52', weather: 'Sunny', temperature: '16°C to 25°C', icon: '☀️' },
-      { name: 'MUSCAT', time: '16 Feb I 15:52', weather: 'Sunny', temperature: '19°C to 27°C', icon: '☀️' },
-      { name: 'KUWAIT', time: '16 Feb I 14:52', weather: 'Cloudy', temperature: '11°C to 21°C', icon: '☁️' },
-      { name: 'BAHRAIN', time: '16 Feb I 14:52', weather: 'Sunny', temperature: '17°C to 24°C', icon: '☀️' },
-    ],
-  },
-];
 
 export default function WeatherScreen() {
   const [currentTime] = useState(new Date());
   const [selectedRegionIndex, setSelectedRegionIndex] = useState(1); // Default to South Asia
+  const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+  const [weatherData, setWeatherData] = useState<Region[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+    getWelcomeData()
+      .then((data) => {
+        if (!cancelled) setWelcomeData(data);
+      })
+      .catch(() => {
+        // Keep null on error; header shows "—"
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    
+    getWeather()
+      .then((response) => {
+        if (!cancelled && response.success) {
+          setWeatherData(response.regions);
+          console.log('[WeatherScreen] ✅ Weather data loaded:', response.regions.length, 'regions');
+        } else if (!cancelled) {
+          console.warn('[WeatherScreen] ⚠️ Weather API returned success: false');
+        }
+      })
+      .catch((error) => {
+        console.error('[WeatherScreen] ❌ Error loading weather data:', error);
+        // Keep empty array on error; will show loading state
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGoBack = () => {
     router.back();
-  };
-
-  const handlePreviousRegion = () => {
-    if (selectedRegionIndex > 0) {
-      setSelectedRegionIndex(selectedRegionIndex - 1);
-    }
-  };
-
-  const handleNextRegion = () => {
-    if (selectedRegionIndex < weatherData.length - 1) {
-      setSelectedRegionIndex(selectedRegionIndex + 1);
-    }
   };
 
   const formatDate = (date: Date) => {
@@ -106,83 +91,176 @@ export default function WeatherScreen() {
         resizeMode="cover"
       >
         {/* Header Bar */}
-        <DynamicHeader currentTime={currentTime} />
+        <DynamicHeader currentTime={currentTime} roomNumber={welcomeData?.room_number} />
 
-        {/* Region Timeline */}
-        <View style={styles.regionContainer}>
-          <TouchableOpacity 
-            activeOpacity={0.6}
-            style={styles.arrowButton}
-            onPress={handlePreviousRegion}
-            disabled={selectedRegionIndex === 0}
-          >
-            <Text style={[styles.arrowText, selectedRegionIndex === 0 && styles.arrowDisabled]}>‹</Text>
-          </TouchableOpacity>
-
-          {weatherData.map((region, index) => (
-            <TouchableOpacity
-              activeOpacity={0.6}
-              key={region.name}
-              style={[
-                styles.regionItem,
-                selectedRegionIndex === index && styles.regionItemActive
-              ]}
-              onPress={() => setSelectedRegionIndex(index)}
-            >
-              <Text style={[
-                styles.regionText,
-                selectedRegionIndex === index && styles.regionTextActive
-              ]}>
-                {region.name}
-              </Text>
-            </TouchableOpacity>
-          ))}
-
-          <TouchableOpacity 
-            activeOpacity={0.6}
-            style={styles.arrowButton}
-            onPress={handleNextRegion}
-            disabled={selectedRegionIndex === weatherData.length - 1}
-          >
-            <Text style={[styles.arrowText, selectedRegionIndex === weatherData.length - 1 && styles.arrowDisabled]}>›</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Weather Table */}
+        {/* Main Content */}
         <View style={styles.mainContent}>
-          <View style={styles.weatherTable}>
-            {/* Table Header */}
-            <View style={styles.tableHeader}>
-              <Text style={[styles.headerCell, styles.cityColumn]}>CITIES</Text>
-              <Text style={[styles.headerCell, styles.timeColumn]}>TIME</Text>
-              <Text style={[styles.headerCell, styles.weatherColumn]}>WEATHER</Text>
+          {/* Tab Navigation with Arrows */}
+          <View style={styles.tabRowContainer}>
+            {/* Left Navigation Arrow */}
+            <TouchableOpacity 
+              style={styles.leftArrow}
+              onPress={() => {
+                const maxIndex = weatherData.length > 0 ? weatherData.length - 1 : 2;
+                const prevIndex = selectedRegionIndex > 0 ? selectedRegionIndex - 1 : maxIndex;
+                setSelectedRegionIndex(prevIndex);
+              }}
+            >
+              <Text style={styles.arrowText}>‹</Text>
+            </TouchableOpacity>
+
+            {/* Tab Navigation */}
+            <View style={styles.tabContainer}>
+              {weatherData.length > 0 ? (
+                weatherData.map((region, index) => (
+                  <TouchableOpacity
+                    activeOpacity={0.6}
+                    key={region.name}
+                    style={[
+                      styles.tab,
+                      selectedRegionIndex === index ? styles.activeTab : styles.inactiveTab
+                    ]}
+                    onPress={() => setSelectedRegionIndex(index)}
+                  >
+                    <Text style={selectedRegionIndex === index ? styles.activeTabText : styles.inactiveTabText}>
+                      {region.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              ) : (
+                // Show default tabs while loading
+                ['North Asia', 'South Asia', 'Middle East'].map((name, index) => (
+                  <TouchableOpacity
+                    activeOpacity={0.6}
+                    key={name}
+                    style={[
+                      styles.tab,
+                      selectedRegionIndex === index ? styles.activeTab : styles.inactiveTab
+                    ]}
+                    onPress={() => setSelectedRegionIndex(index)}
+                  >
+                    <Text style={selectedRegionIndex === index ? styles.activeTabText : styles.inactiveTabText}>
+                      {name}
+                    </Text>
+                  </TouchableOpacity>
+                ))
+              )}
             </View>
 
-            {/* Table Rows */}
-            <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={false}>
-              {weatherData[selectedRegionIndex].cities.map((city, index) => (
-                <View key={index} style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}>
-                  <Text style={[styles.tableCell, styles.cityColumn]}>{city.name}</Text>
-                  <Text style={[styles.tableCell, styles.timeColumn]}>{city.time}</Text>
-                  <View style={[styles.weatherCell, styles.weatherColumn]}>
-                    <Text style={styles.weatherIcon}>{city.icon}</Text>
-                    <Text style={styles.weatherTemp}>{city.temperature}</Text>
+            {/* Right Navigation Arrow */}
+            <TouchableOpacity 
+              style={styles.rightArrow}
+              onPress={() => {
+                const maxIndex = weatherData.length > 0 ? weatherData.length - 1 : 2;
+                const nextIndex = selectedRegionIndex < maxIndex ? selectedRegionIndex + 1 : 0;
+                setSelectedRegionIndex(nextIndex);
+              }}
+            >
+              <Text style={styles.arrowText}>›</Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* Dynamic Content Area */}
+          <View style={styles.contentArea}>
+            <View style={styles.weatherTable}>
+              {/* Table Header */}
+              <View style={styles.tableHeader}>
+                <Text style={[styles.headerCell, styles.cityColumn]}>CITIES</Text>
+                <Text style={[styles.headerCell, styles.timeColumn]}>TIME</Text>
+                <Text style={[styles.headerCell, styles.weatherColumn]}>WEATHER</Text>
+              </View>
+
+              {/* Table Rows */}
+              <ScrollView style={styles.tableBody} showsVerticalScrollIndicator={false}>
+                {isLoading ? (
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator size="large" color="#8B1538" />
+                    <Text style={styles.loadingText}>Loading weather data...</Text>
                   </View>
-                </View>
-              ))}
-            </ScrollView>
+                ) : weatherData.length > 0 && weatherData[selectedRegionIndex]?.cities ? (
+                  weatherData[selectedRegionIndex].cities.map((city, index) => (
+                    <View key={index} style={[styles.tableRow, index % 2 === 0 && styles.tableRowEven]}>
+                      <Text style={[styles.tableCell, styles.cityColumn]}>{city.name}</Text>
+                      <Text style={[styles.tableCell, styles.timeColumn]}>{city.time}</Text>
+                      <View style={[styles.weatherCell, styles.weatherColumn]}>
+                        <Text style={styles.weatherIcon}>{city.icon}</Text>
+                        <Text style={styles.weatherTemp}>{city.temperature}</Text>
+                      </View>
+                    </View>
+                  ))
+                ) : (
+                  <View style={styles.loadingContainer}>
+                    <Text style={styles.loadingText}>No weather data available</Text>
+                  </View>
+                )}
+              </ScrollView>
+            </View>
           </View>
         </View>
 
-        {/* Bottom Bar */}
+        {/* Bottom Control Bar */}
         <View style={styles.bottomBar}>
-          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
-            <View style={styles.controlButton} />
+          <View style={styles.controlItem}>
+            <View style={styles.sphericalButton}>
+              <Text style={styles.menuButtonText}>MENU</Text>
+            </View>
             <Text style={styles.controlLabel}>MENU BAR</Text>
+          </View>
+          <View style={styles.controlItem}>
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.dpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.dpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.scrollDpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
+            <Text style={styles.controlLabel}>SELECT CATEGORY</Text>
+          </View>
+          <TouchableOpacity activeOpacity={0.6} style={styles.controlItem} onPress={handleGoBack}>
+            <View style={styles.sphericalButton}>
+              <View style={styles.backIconContainer}>
+                <Text style={styles.backButtonText}>←</Text>
+              </View>
+            </View>
+            <Text style={styles.controlLabel}>BACK</Text>
           </TouchableOpacity>
           <View style={styles.controlItem}>
-            <View style={styles.controlButton} />
-            <Text style={styles.controlLabel}>SELECT CATEGORY</Text>
+            <View style={styles.sphericalButton}>
+              <View style={styles.dpadContainer}>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▲</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+                <View style={styles.dpadRow}>
+                  <Text style={styles.scrollDpadArrow}>◄</Text>
+                  <View style={styles.dpadCenter}>
+                    <Text style={styles.dpadOK}>OK</Text>
+                  </View>
+                  <Text style={styles.scrollDpadArrow}>►</Text>
+                </View>
+                <View style={styles.dpadRow}>
+                  <View style={styles.dpadArrowPlaceholder} />
+                  <Text style={styles.dpadArrow}>▼</Text>
+                  <View style={styles.dpadArrowPlaceholder} />
+                </View>
+              </View>
+            </View>
+            <Text style={styles.controlLabel}>SCROLL CONTENT</Text>
           </View>
         </View>
       </ImageBackground>
@@ -224,59 +302,70 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '500',
   },
-  regionContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 15,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    gap: 10,
-  },
-  arrowButton: {
-    padding: 10,
-  },
-  arrowText: {
-    fontSize: 32,
-    color: '#333',
-    fontWeight: 'bold',
-  },
-  arrowDisabled: {
-    opacity: 0.3,
-  },
-  regionItem: {
-    paddingHorizontal: 40,
-    paddingVertical: 12,
-    borderRadius: 8,
-    backgroundColor: 'rgba(255, 255, 255, 0.8)',
-    minWidth: 180,
-    alignItems: 'center',
-  },
-  regionItemActive: {
-    backgroundColor: '#8B1538',
-  },
-  regionText: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#333',
-  },
-  regionTextActive: {
-    color: '#fff',
-  },
   mainContent: {
     flex: 1,
-    paddingHorizontal: 40,
-    paddingVertical: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 15,
+  },
+  tabRowContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 10,
+    width: '100%',
+  },
+  leftArrow: {
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 5,
+  },
+  rightArrow: {
+    padding: 5,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+  },
+  arrowText: {
+    fontSize: 40,
+    color: '#000000',
+    fontWeight: 'bold',
+  },
+  tabContainer: {
+    flexDirection: 'row',
+    flex: 1,
+  },
+  tab: {
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    justifyContent: 'center',
+    flex: 1,
+  },
+  activeTab: {
+    backgroundColor: '#8B1538',
+  },
+  inactiveTab: {
+    backgroundColor: '#FFFFFF',
+  },
+  activeTabText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  inactiveTabText: {
+    color: '#000000',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  contentArea: {
+    flex: 1,
+    backgroundColor: '#FFFFFF',
+    padding: 15,
+    position: 'relative',
   },
   weatherTable: {
     flex: 1,
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    borderRadius: 20,
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 8,
+    backgroundColor: '#FFFFFF',
   },
   tableHeader: {
     flexDirection: 'row',
@@ -320,14 +409,25 @@ const styles = StyleSheet.create({
   weatherCell: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 15,
   },
   weatherIcon: {
     fontSize: 24,
+    marginRight: 15,
   },
   weatherTemp: {
     fontSize: 15,
     color: '#333',
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
   },
   bottomBar: {
     flexDirection: 'row',
@@ -341,20 +441,97 @@ const styles = StyleSheet.create({
   controlItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
+    marginHorizontal: 5,
   },
-  controlButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: '#90A4AE',
-    borderWidth: 2,
-    borderColor: '#666',
+  sphericalButton: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#E0E0E0',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 6,
+    elevation: 8,
+    borderWidth: 1,
+    borderColor: '#B0B0B0',
+  },
+  menuButtonText: {
+    fontSize: 10,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+  },
+  dpadContainer: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  dpadRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    height: 12,
+  },
+  dpadArrow: {
+    fontSize: 9,
+    color: '#000000',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  scrollDpadArrow: {
+    fontSize: 9,
+    color: '#808080',
+    fontWeight: 'bold',
+    width: 12,
+    textAlign: 'center',
+    lineHeight: 12,
+    opacity: 0.5,
+  },
+  dpadArrowPlaceholder: {
+    width: 12,
+  },
+  dpadCenter: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#808080',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginHorizontal: 0,
+  },
+  dpadOK: {
+    fontSize: 5,
+    fontWeight: 'bold',
+    color: '#000000',
+    textAlign: 'center',
+    lineHeight: 12,
+  },
+  backIconContainer: {
+    width: '100%',
+    height: '100%',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  backButtonText: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#000000',
+    includeFontPadding: false,
+    textAlign: 'center',
+    lineHeight: 28,
+    marginBottom: 10,
   },
   controlLabel: {
     fontSize: 12,
     color: '#000',
     fontWeight: '600',
+    marginLeft: 8,
   },
 });
 

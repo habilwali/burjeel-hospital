@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,25 @@ import {
 import { router } from 'expo-router';
 import QRCode from 'react-qr-code';
 import DynamicHeader from '../components/DynamicHeader';
+import { getWelcomeData } from '../api/getWelcomeData';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ChromecastScreen() {
   const chromecastUrl = 'http://xxxxxxxxx.xxx/xxx'; // Replace with actual URL
+  const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getWelcomeData()
+      .then((data) => {
+        if (!cancelled) setWelcomeData(data);
+      })
+      .catch(() => {
+        // Keep null on error; header shows "—"
+      });
+    return () => { cancelled = true; };
+  }, []);
 
   const handleGoBack = () => {
     router.back();
@@ -30,7 +44,7 @@ export default function ChromecastScreen() {
         resizeMode="cover"
       >
         {/* Header */}
-        <DynamicHeader currentTime={new Date()} />
+        <DynamicHeader currentTime={new Date()} roomNumber={welcomeData?.room_number} />
 
         {/* Main Content */}
         <View style={styles.mainContent}>
