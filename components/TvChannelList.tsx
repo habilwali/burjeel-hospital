@@ -1,4 +1,4 @@
-import React, { memo } from 'react';
+import React, { memo, useRef, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, FlatList, ActivityIndicator, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -9,32 +9,53 @@ type ChannelItemProps = {
   isActive: boolean;
   isFocused: boolean;
   onPress: () => void;
+  isFirstItem?: boolean;
 };
 
-const ChannelItem = memo(({ channel, isActive, isFocused, onPress }: ChannelItemProps) => (
-  <TouchableOpacity
-    activeOpacity={0.6}
-    style={[
-      styles.channelItem,
-      isActive && styles.channelItemActive,
-      isFocused && styles.channelItemFocused,
-    ]}
-    onPress={onPress}
-    // On TV devices, moving focus with the remote should also select/play the channel.
-    // This makes the focused item become the active channel automatically.
-    onFocus={onPress}
-  >
-    <Text
+const ChannelItem = memo(({ channel, isActive, isFocused, onPress, isFirstItem }: ChannelItemProps) => {
+  const itemRef = useRef<any>(null);
+
+  // Focus the first item on mount
+  useEffect(() => {
+    if (isFirstItem && isFocused && itemRef.current) {
+      const timer = setTimeout(() => {
+        // @ts-ignore - focus() may not be available on all platforms
+        if (itemRef.current?.focus) {
+          itemRef.current.focus();
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [isFirstItem, isFocused]);
+
+  return (
+    <TouchableOpacity
+      ref={itemRef}
+      activeOpacity={0.6}
+      // @ts-ignore - hasTVPreferredFocus is for TV platforms
+      hasTVPreferredFocus={isFirstItem && isFocused}
       style={[
-        styles.channelText,
-        isActive && styles.channelTextActive,
-        isFocused && styles.channelTextFocused,
+        styles.channelItem,
+        isActive && styles.channelItemActive,
+        isFocused && styles.channelItemFocused,
       ]}
+      onPress={onPress}
+      // On TV devices, moving focus with the remote should also select/play the channel.
+      // This makes the focused item become the active channel automatically.
+      onFocus={onPress}
     >
-      {channel.name}
-    </Text>
-  </TouchableOpacity>
-));
+      <Text
+        style={[
+          styles.channelText,
+          isActive && styles.channelTextActive,
+          isFocused && styles.channelTextFocused,
+        ]}
+      >
+        {channel.name}
+      </Text>
+    </TouchableOpacity>
+  );
+});
 
 ChannelItem.displayName = 'ChannelItem';
 
@@ -69,6 +90,7 @@ const TvChannelList = memo(
               index={index}
               isActive={selectedChannelId === item.id}
               isFocused={focusedIndex === index}
+              isFirstItem={index === 0}
               onPress={() => onSelectChannel(item, index)}
             />
           )}
@@ -112,8 +134,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#8B1538',
   },
   channelItemFocused: {
-    borderWidth: 3,
-    borderColor: '#FFD700',
+    borderWidth: 4,
+    borderColor: '#000000',
     borderRadius: 5,
   },
   channelText: {
@@ -126,7 +148,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   channelTextFocused: {
-    color: '#FFD700',
+    color: '#000000',
     fontWeight: 'bold',
   },
 });

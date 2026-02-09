@@ -15,6 +15,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
 import { getWeather } from '../api/getWeather';
 import type { Region } from '../types/weather';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 
 const { width, height } = Dimensions.get('window');
 
@@ -24,10 +25,29 @@ export default function WeatherScreen() {
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
   const [weatherData, setWeatherData] = useState<Region[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
 
+  // Fetch device MAC once for this screen
   useEffect(() => {
     let cancelled = false;
-    getWelcomeData()
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch welcome data using dynamic MAC
+  useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
+    let cancelled = false;
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -35,7 +55,7 @@ export default function WeatherScreen() {
         // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
 
   useEffect(() => {
     let cancelled = false;
@@ -45,13 +65,9 @@ export default function WeatherScreen() {
       .then((response) => {
         if (!cancelled && response.success) {
           setWeatherData(response.regions);
-          console.log('[WeatherScreen] ✅ Weather data loaded:', response.regions.length, 'regions');
-        } else if (!cancelled) {
-          console.warn('[WeatherScreen] ⚠️ Weather API returned success: false');
         }
       })
-      .catch((error) => {
-        console.error('[WeatherScreen] ❌ Error loading weather data:', error);
+      .catch(() => {
         // Keep empty array on error; will show loading state
       })
       .finally(() => {

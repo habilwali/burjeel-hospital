@@ -1,15 +1,16 @@
 import type { GetPackagesResponse } from '../types/packages';
 import { cacheGet, cacheSet } from '../lib/cache';
+import { IPTV_API_BASE } from './config';
 
-const API_BASE = 'https://cmt-technologies.net/iptv-cms';
-const DEFAULT_MAC = 'A4:34:D9:E6:F7:30';
+// Base URL for all IPTV CMS APIs
+const API_BASE = IPTV_API_BASE;
 const CACHE_KEY = 'packages';
 
 /**
  * Fetches packages (categories) from getPackages.php. Cached on first load.
- * @param mac - Device MAC (default: A4:34:D9:E6:F7:30)
+ * @param mac - Device MAC (must be provided dynamically)
  */
-export async function getPackages(mac: string = DEFAULT_MAC): Promise<GetPackagesResponse> {
+export async function getPackages(mac: string): Promise<GetPackagesResponse> {
   const key = `${CACHE_KEY}:${mac}`;
   const cached = cacheGet<GetPackagesResponse>(key);
   if (cached) {
@@ -24,7 +25,7 @@ export async function getPackages(mac: string = DEFAULT_MAC): Promise<GetPackage
 }
 
 async function fetchPackagesFromNetwork(mac: string): Promise<GetPackagesResponse> {
-  const url = `${API_BASE}/api/getPackages.php?mac=${encodeURIComponent(mac)}`;
+  const url = `${API_BASE}/getPackages.php?mac=${encodeURIComponent(mac)}`;
   const res = await fetch(url);
 
   if (!res.ok) {

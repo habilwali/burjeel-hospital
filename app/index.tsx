@@ -4,8 +4,9 @@ import { useVideoPlayer } from 'expo-video';
 import { useRouter } from 'expo-router';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import DynamicHeader from '../components/DynamicHeader';
-import { getBackgroundVideos, toAbsoluteVideoUrl } from '../api/getBackgroundVideos';
-import { getWelcomeData } from '../api/getWelcomeData';
+import { getBackgroundVideos, toAbsoluteVideoUrl } from '@/api/getBackgroundVideos';
+import { getWelcomeData } from '@/api/getWelcomeData';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 import HomeMenu, { HomeMenuItem } from '../components/HomeMenu';
 import BottomControls from '../components/BottomControls';
 import IntroVideoModal from '../components/IntroVideoModal';
@@ -20,16 +21,35 @@ export default function HomeScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
   const [isVideoLoading, setIsVideoLoading] = useState(true);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
 
   const player = useVideoPlayer(null as any, (p) => {
     p.loop = true;
   });
 
-  // Fetch background videos from API and use first in modal
   useEffect(() => {
     let cancelled = false;
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch background videos from API and use first in modal
+  useEffect(() => {
+    if (!deviceInfo?.mac) {
+      return;
+    }
+
+    let cancelled = false;
     setIsVideoLoading(true);
-    getBackgroundVideos()
+    getBackgroundVideos(deviceInfo.mac)
       .then((res) => {
         if (cancelled || !res.videos?.length) return;
         const first = res.videos[0];
@@ -45,12 +65,16 @@ export default function HomeScreen() {
         setShowWelcome(true);
       });
     return () => { cancelled = true; };
-  }, [player]);
+  }, [player, deviceInfo?.mac]);
 
   // Fetch welcome data (room_number, welcome_message, etc.) for header and welcome modal
   useEffect(() => {
+    if (!deviceInfo?.mac) {
+      return;
+    }
+
     let cancelled = false;
-    getWelcomeData()
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -58,7 +82,7 @@ export default function HomeScreen() {
         // Keep null on error; header shows "—", modal uses fallback
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
 
   // Memoize menuItems to prevent re-creation
   const menuItems: HomeMenuItem[] = useMemo(
@@ -118,7 +142,10 @@ export default function HomeScreen() {
       <View style={styles.container}>
         <View style={styles.backgroundImage} />
 
-        <DynamicHeader currentTime={currentTime} roomNumber={welcomeData?.room_number} />
+        <DynamicHeader
+          currentTime={currentTime}
+          roomNumber={welcomeData?.room_number}
+        />
 
         {!showVideoModal && !showWelcome && (
           <>

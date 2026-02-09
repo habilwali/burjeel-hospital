@@ -12,6 +12,7 @@ import {
 import { router } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 
 const { width, height } = Dimensions.get('window');
 
@@ -52,10 +53,29 @@ export default function MessagesScreen() {
   const [selectedMessageIndex, setSelectedMessageIndex] = useState(1);
   const [contentScrollPosition, setContentScrollPosition] = useState(0);
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
 
+  // Fetch device MAC once for this screen
   useEffect(() => {
     let cancelled = false;
-    getWelcomeData()
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch welcome data using dynamic MAC
+  useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
+    let cancelled = false;
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -63,7 +83,7 @@ export default function MessagesScreen() {
         // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
 
   const handleGoBack = () => {
     router.back();

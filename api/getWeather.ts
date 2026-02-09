@@ -111,7 +111,6 @@ function getMockWeatherData(): Region[] {
 async function fetchCityWeather(cityKey: string): Promise<City | null> {
   const city = CITY_COORDINATES[cityKey];
   if (!city) {
-    console.warn(`[getWeather] City coordinates not found for: ${cityKey}`);
     return null;
   }
 
@@ -119,8 +118,6 @@ async function fetchCityWeather(cityKey: string): Promise<City | null> {
     // Open-Meteo API - free, no API key required
     // Current weather + daily forecast
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${city.latitude}&longitude=${city.longitude}&current=weather_code,temperature_2m&daily=temperature_2m_max,temperature_2m_min,weather_code&timezone=${encodeURIComponent(city.timezone)}`;
-    
-    console.log(`[getWeather] Fetching weather for ${cityKey}...`);
     const res = await fetch(url, {
       method: 'GET',
       headers: {
@@ -133,7 +130,6 @@ async function fetchCityWeather(cityKey: string): Promise<City | null> {
     }
 
     const data = await res.json();
-    
     if (!data.current || !data.daily) {
       throw new Error('Invalid API response structure');
     }
@@ -163,8 +159,7 @@ async function fetchCityWeather(cityKey: string): Promise<City | null> {
       temperature: formatTemperature(minTemp, maxTemp),
       icon: getWeatherIcon(weatherCode),
     };
-  } catch (error) {
-    console.error(`[getWeather] Error fetching weather for ${cityKey}:`, error);
+  } catch {
     return null;
   }
 }
@@ -180,18 +175,13 @@ export async function getWeather(): Promise<WeatherApiResponse> {
   if (!USE_REAL_API) {
     const cached = cacheGet<WeatherApiResponse>(key);
     if (cached) {
-      console.log('[getWeather] Using cached data');
       return cached;
     }
-  } else {
-    console.log('[getWeather] Bypassing cache to fetch fresh real data');
   }
 
   // Try real API
   if (USE_REAL_API) {
     try {
-      console.log('[getWeather] 🌐 Fetching REAL weather data from Open-Meteo API...');
-      
       // Fetch weather for all cities in parallel
       const allCityKeys = Object.keys(CITY_COORDINATES);
       const cityPromises = allCityKeys.map(cityKey => fetchCityWeather(cityKey));
@@ -237,7 +227,6 @@ export async function getWeather(): Promise<WeatherApiResponse> {
         });
       });
 
-      console.log('[getWeather] ✅ Successfully fetched REAL weather data from Open-Meteo API');
       const data: WeatherApiResponse = {
         success: true,
         regions,
@@ -245,13 +234,11 @@ export async function getWeather(): Promise<WeatherApiResponse> {
       
       return data;
     } catch (error) {
-      console.error('[getWeather] ❌ Error fetching real weather data:', error);
-      console.log('[getWeather] ⚠️ Falling back to mock data');
+      // swallow error and fall back to mock data
     }
   }
 
   // Fallback to mock data
-  console.log('[getWeather] 📦 Using mock weather data');
   const mockData = getMockWeatherData();
   const data: WeatherApiResponse = {
     success: true,

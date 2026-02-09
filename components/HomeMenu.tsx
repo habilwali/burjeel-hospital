@@ -1,4 +1,4 @@
-import React, { memo, useState, useCallback } from 'react';
+import React, { memo, useState, useCallback, useEffect, useRef } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Dimensions } from 'react-native';
 
 const { width } = Dimensions.get('window');
@@ -23,6 +23,7 @@ const HomeMenu = memo(({ items, onPressItem }: Props) => {
   // startIndex defines the first visible item in the 3x2 window
   const [startIndex, setStartIndex] = useState(0);
   const [focusedIndex, setFocusedIndex] = useState(0);
+  const firstItemRef = useRef<any>(null);
 
   const maxStartIndex = Math.max(0, items.length - ITEMS_PER_PAGE);
   const isFirstPage = startIndex === 0;
@@ -42,6 +43,36 @@ const HomeMenu = memo(({ items, onPressItem }: Props) => {
       setFocusedIndex(0);
     }
   }, [isFirstPage]);
+
+  // Ensure first item is focused on initial mount
+  useEffect(() => {
+    setFocusedIndex(0);
+    // Use a small delay to ensure the component is fully rendered before focusing
+    const timer = setTimeout(() => {
+      if (firstItemRef.current) {
+        // Try to focus the first item programmatically
+        // @ts-ignore - focus() may not be available on all platforms
+        if (firstItemRef.current.focus) {
+          firstItemRef.current.focus();
+        }
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, []); // Only run on initial mount
+
+  // Reset focus to first item when startIndex changes
+  useEffect(() => {
+    setFocusedIndex(0);
+    const timer = setTimeout(() => {
+      if (firstItemRef.current) {
+        // @ts-ignore
+        if (firstItemRef.current.focus) {
+          firstItemRef.current.focus();
+        }
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [startIndex]);
 
   return (
     <View style={styles.menuContainer}>
@@ -63,13 +94,24 @@ const HomeMenu = memo(({ items, onPressItem }: Props) => {
                 // @ts-ignore
                 activeOpacity={0.8}
                 key={item.id}
+                ref={index === 0 ? firstItemRef : null}
+                // @ts-ignore - hasTVPreferredFocus is for TV platforms
+                hasTVPreferredFocus={index === 0 && startIndex === 0}
                 style={[
                   styles.menuItem,
                   { backgroundColor: item.color },
                   index === focusedIndex && styles.menuItemFocused,
                 ]}
                 onPress={() => onPressItem(item)}
-                onFocus={() => setFocusedIndex(index)}
+                onFocus={() => {
+                  setFocusedIndex(index);
+                }}
+                onBlur={() => {
+                  // Only clear focus if it's not the focused index
+                  if (index === focusedIndex && index !== 0) {
+                    // Keep focus state if it's the first item
+                  }
+                }}
               >
                 {typeof item.icon === 'string' ? (
                   <>

@@ -19,7 +19,27 @@
       ],
       "expo-router",
       "expo-font",
-      "expo-build-properties",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          },
+          "ios": {
+            "infoPlist": {
+              "NSAppTransportSecurity": {
+                "NSAllowsArbitraryLoads": true,
+                "NSExceptionDomains": {
+                  "192.168.70.215": {
+                    "NSExceptionAllowsInsecureHTTPLoads": true,
+                    "NSIncludesSubdomains": true
+                  }
+                }
+              }
+            }
+          }
+        }
+      ],
       "expo-web-browser",
       "expo-video"
     ],
@@ -30,11 +50,26 @@
         "resizeMode": "cover"
       },
       "package": "com.habeelwali.Burjeelhospital",
-      "orientation": "landscape"
+      "orientation": "landscape",
+      "usesCleartextTraffic": true,
+      "networkSecurityConfig": {
+        "cleartextTrafficPermitted": true
+      }
     },
     "ios": {
       "splash": {
         "image": "./assets/images/splash.png"
+      },
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true,
+          "NSExceptionDomains": {
+            "192.168.70.215": {
+              "NSExceptionAllowsInsecureHTTPLoads": true,
+              "NSIncludesSubdomains": true
+            }
+          }
+        }
       }
     },
     "web": {

@@ -1,8 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar } from 'react-native';
+import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
+import { getFacilityGroups } from '../api/getFacilityGroups';
+import type { FacilityGroup } from '../types/facility';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 
 const { width, height } = Dimensions.get('window');
 
@@ -10,16 +13,58 @@ export default function InformationScreen() {
   const router = useRouter();
   const [currentTime] = useState(new Date());
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+  const [facilityGroups, setFacilityGroups] = useState<FacilityGroup[]>([]);
+  const [selectedGroup, setSelectedGroup] = useState<FacilityGroup | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
 
+  // Fetch device MAC once for this screen
   useEffect(() => {
     let cancelled = false;
-    getWelcomeData()
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch welcome data using dynamic MAC
+  useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
+    let cancelled = false;
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
       .catch(() => {
         // Keep null on error; header shows "—"
       });
+    return () => { cancelled = true; };
+  }, [deviceInfo?.mac]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setIsLoading(true);
+    
+    getFacilityGroups()
+      .then((response) => {
+        if (!cancelled && response.status === 'success' && response.data) {
+          setFacilityGroups(response.data);
+        }
+      })
+      .catch(() => {
+        // Keep empty array on error
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    
     return () => { cancelled = true; };
   }, []);
 
@@ -40,13 +85,13 @@ export default function InformationScreen() {
     });
   };
 
-  const handleSubCategorySelect = (category: string) => {
-    if (category === 'Service') {
-      router.push('/services' as any);
-    } else {
-      console.log(`Selected sub-category: ${category}`);
-      // You can add navigation to other sub-category pages here
-    }
+  const handleFacilityGroupSelect = (group: FacilityGroup) => {
+    setSelectedGroup(group);
+    // Navigate to services page with group_id as query parameter
+    router.push({
+      pathname: '/services',
+      params: { group_id: group.id }
+    } as any);
   };
 
   const handleGoBack = () => {
@@ -70,38 +115,40 @@ export default function InformationScreen() {
           <View style={styles.informationPanel}>
             <Text style={styles.panelTitle}>INFORMATION</Text>
             
-            {/* Sub-category Buttons */}
-            <View style={styles.subCategoryGrid}>
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={styles.subCategoryButton}
-                onPress={() => handleSubCategorySelect('Service')}
-              >
-                <Text style={styles.subCategoryText}>Service</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={styles.subCategoryButton}
-                onPress={() => handleSubCategorySelect('Doctor')}
-              >
-                <Text style={styles.subCategoryText}>Doctor</Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={styles.subCategoryButton}
-                onPress={() => handleSubCategorySelect('Department')}
-              >
-                <Text style={styles.subCategoryText}>Department</Text>
-              </TouchableOpacity>
-            </View>
+            {/* Facility Groups Buttons */}
+            {isLoading ? (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#8B1538" />
+                <Text style={styles.loadingText}>Loading facility groups...</Text>
+              </View>
+            ) : facilityGroups.length > 0 ? (
+              <View style={styles.subCategoryGrid}>
+                {facilityGroups.map((group) => (
+                  <TouchableOpacity 
+                    key={group.id}
+                    activeOpacity={0.6}
+                    style={[
+                      styles.subCategoryButton,
+                      selectedGroup?.id === group.id && styles.subCategoryButtonActive
+                    ]}
+                    onPress={() => handleFacilityGroupSelect(group)}
+                  >
+                    <Text style={styles.subCategoryText}>{group.name}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            ) : (
+              <View style={styles.loadingContainer}>
+                <Text style={styles.loadingText}>No facility groups available</Text>
+              </View>
+            )}
 
             {/* Additional Information Area */}
             <View style={styles.infoArea}>
               <Text style={styles.infoText}>
-                Select a category above to view detailed information about our services, 
-                doctors, and departments.
+                {selectedGroup 
+                  ? `Selected: ${selectedGroup.name} - View detailed information about this facility group.`
+                  : 'Select a facility group above to view detailed information.'}
               </Text>
             </View>
           </View>
@@ -285,6 +332,21 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 4,
     elevation: 4,
+  },
+  subCategoryButtonActive: {
+    borderWidth: 4,
+    borderColor: '#FFD700',
+    backgroundColor: '#A02040',
+  },
+  loadingContainer: {
+    paddingVertical: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
   },
   subCategoryText: {
     color: '#fff',

@@ -1,18 +1,27 @@
-import React, { useState, useEffect } from 'react';
-import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar, ScrollView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { StyleSheet, View, Text, TouchableOpacity, ImageBackground, Dimensions, StatusBar, ScrollView, ActivityIndicator, Image } from 'react-native';
 import { VideoView, useVideoPlayer } from 'expo-video';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
+import { getFacilities } from '../api/getFacilities';
+import type { Facility } from '../types/facility';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 
 const { width, height } = Dimensions.get('window');
 
 export default function ServicesScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ group_id?: string }>();
   const [currentTime] = useState(new Date());
-  const [activeTab, setActiveTab] = useState('Information 1');
+  const [activeTabIndex, setActiveTabIndex] = useState(0);
   const [isVideoPlaying, setIsVideoPlaying] = useState(false);
   const [welcomeData, setWelcomeData] = useState<Awaited<ReturnType<typeof getWelcomeData>> | null>(null);
+  const [facilities, setFacilities] = useState<Facility[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [scrollY, setScrollY] = useState(0);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
   
   const player = useVideoPlayer('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
 
@@ -26,9 +35,27 @@ export default function ServicesScreen() {
     };
   }, [player]);
 
+  // Fetch device MAC once for this screen
   useEffect(() => {
     let cancelled = false;
-    getWelcomeData()
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch welcome data using dynamic MAC
+  useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
+    let cancelled = false;
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -36,7 +63,35 @@ export default function ServicesScreen() {
         // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
+
+  useEffect(() => {
+    let cancelled = false;
+    
+    if (!params.group_id) {
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    
+    getFacilities(params.group_id)
+      .then((response) => {
+        if (!cancelled && response.status === 'success' && response.data) {
+          setFacilities(response.data);
+          // Reset to first tab when new data loads
+          setActiveTabIndex(0);
+        }
+      })
+      .catch(() => {
+        // Keep empty array on error
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+    
+    return () => { cancelled = true; };
+  }, [params.group_id]);
 
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -59,11 +114,13 @@ export default function ServicesScreen() {
     router.back();
   };
 
-  const handleTabPress = (tabName: string) => {
-    setActiveTab(tabName);
-    if (tabName === 'Information 2') {
-      // Force video to restart and play
-      player.replace('https://commondatastorage.googleapis.com/gtv-videos-bucket/sample/ForBiggerBlazes.mp4');
+  const handleTabPress = (index: number) => {
+    setActiveTabIndex(index);
+    const facility = facilities[index];
+    
+    // If facility has video, play it
+    if (facility?.video) {
+      player.replace(facility.video);
       setTimeout(() => {
         player.play();
       }, 200);
@@ -72,56 +129,113 @@ export default function ServicesScreen() {
     }
   };
 
+  const getTabName = (index: number): string => {
+    return `Information ${index + 1}`;
+  };
+
+  const handleScrollUp = () => {
+    scrollViewRef.current?.scrollTo({
+      y: 0,
+      animated: true,
+    });
+  };
+
+  const handleScrollDown = () => {
+    scrollViewRef.current?.scrollToEnd({
+      animated: true,
+    });
+  };
+
+  const handleScrollContent = (direction: 'up' | 'down') => {
+    if (!scrollViewRef.current) return;
+    
+    const scrollAmount = 150; // Pixels to scroll per press
+    
+    if (direction === 'up') {
+      const newY = Math.max(0, scrollY - scrollAmount);
+      scrollViewRef.current.scrollTo({
+        y: newY,
+        animated: true,
+      });
+      setScrollY(newY);
+    } else {
+      const newY = scrollY + scrollAmount;
+      scrollViewRef.current.scrollTo({
+        y: newY,
+        animated: true,
+      });
+      setScrollY(newY);
+    }
+  };
+
 
   const renderContent = () => {
-    switch (activeTab) {
-      case 'Information 1':
-        return (
-          <View style={styles.twoColumnLayout}>
-            {/* Left Side - Image Placeholder */}
-            <View style={styles.leftImageSection}>
-              <View style={styles.imageOnlyBox}>
-                <Text style={styles.imageOnlyText}>Image only</Text>
-              </View>
-            </View>
-            
-            {/* Right Side - Content */}
-            <View style={styles.rightContentSection}>
-              <Text style={styles.contentText}>
-                VPS Healthcare Group's premium healthcare brand, Burjeel is the most comprehensive private tertiary healthcare provider in UAE. The Burjeel hospitals have been at the forefront of healthcare services in the region and have emerged as the Center of Medical Excellence across the UAE. Over the years, Burjeel has built a strong sense of trust in the hearts of every patient we came across by serving them in all walks of life along with state-of-the-art facilities, and in-depth expertise.
-              </Text>
-            </View>
-          </View>
-        );
-      case 'Information 2':
-        return (
-          <View style={styles.videoContainer}>
-            <VideoView
-              player={player}
-              style={styles.videoPlayer}
-              nativeControls={false}
-            />
-          </View>
-        );
-      case 'Information 3':
-        return (
-          <View style={styles.contentContainer}>
-            <Text style={styles.contentTitle}>Information 3</Text>
-            <Text style={styles.contentText}>
-              Our specialized departments include Cardiology, Neurology, Oncology, Pediatrics, and Emergency Medicine. Each department is equipped with the latest medical technology and staffed by internationally trained specialists.
-            </Text>
-            <View style={styles.servicesList}>
-              <Text style={styles.serviceItem}>• Emergency Services 24/7</Text>
-              <Text style={styles.serviceItem}>• Advanced Diagnostic Imaging</Text>
-              <Text style={styles.serviceItem}>• Surgical Excellence</Text>
-              <Text style={styles.serviceItem}>• Rehabilitation Services</Text>
-              <Text style={styles.serviceItem}>• Preventive Care Programs</Text>
-            </View>
-          </View>
-        );
-      default:
-        return null;
+    if (isLoading) {
+      return (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#8B1538" />
+          <Text style={styles.loadingText}>Loading facilities...</Text>
+        </View>
+      );
     }
+
+    if (facilities.length === 0) {
+      return (
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>No facilities available</Text>
+        </View>
+      );
+    }
+
+    const facility = facilities[activeTabIndex];
+    if (!facility) {
+      return null;
+    }
+
+    // If facility has video, show video player
+    if (facility.video) {
+      return (
+        <View style={styles.videoContainer}>
+          <VideoView
+            player={player}
+            style={styles.videoPlayer}
+            nativeControls={false}
+          />
+        </View>
+      );
+    }
+
+    // Default: two column layout with image and content
+    return (
+      <View style={styles.twoColumnLayout}>
+        {/* Left Side - Image */}
+        <View style={styles.leftImageSection}>
+          {facility.image ? (
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: facility.image }}
+                style={styles.facilityImage}
+                resizeMode="cover"
+              />
+            </View>
+          ) : (
+            <View style={styles.imageOnlyBox}>
+              <Text style={styles.imageOnlyText}>Image only</Text>
+            </View>
+          )}
+        </View>
+        
+        {/* Right Side - Content */}
+        <View style={styles.rightContentSection}>
+          {facility.name && (
+            <Text style={styles.contentTitle}>{facility.name}</Text>
+          )}
+          <Text style={styles.contentText}>
+            {facility.description || facility.content || 'No description available.'}
+          </Text>
+        </View>
+      </View>
+    );
   };
 
   return (
@@ -138,70 +252,62 @@ export default function ServicesScreen() {
         {/* Main Content */}
         <View style={styles.mainContent}>
           {/* Tab Navigation with Arrows */}
-          <View style={styles.tabRowContainer}>
-            {/* Left Navigation Arrow */}
-            <TouchableOpacity 
-              style={styles.leftArrow}
-              onPress={() => {
-                const tabs = ['Information 1', 'Information 2', 'Information 3'];
-                const currentIndex = tabs.indexOf(activeTab);
-                const prevIndex = currentIndex > 0 ? currentIndex - 1 : tabs.length - 1;
-                handleTabPress(tabs[prevIndex]);
-              }}
-            >
-              <Text style={styles.arrowText}>‹</Text>
-            </TouchableOpacity>
+          {!isLoading && facilities.length > 0 && (
+            <View style={styles.tabRowContainer}>
+              {/* Left Navigation Arrow */}
+              <TouchableOpacity 
+                style={styles.leftArrow}
+                onPress={() => {
+                  const prevIndex = activeTabIndex > 0 ? activeTabIndex - 1 : facilities.length - 1;
+                  handleTabPress(prevIndex);
+                }}
+              >
+                <Text style={styles.arrowText}>‹</Text>
+              </TouchableOpacity>
 
-            {/* Tab Navigation */}
-            <View style={styles.tabContainer}>
+              {/* Tab Navigation */}
+              <View style={styles.tabContainer}>
+                {facilities.map((facility, index) => (
+                  <TouchableOpacity 
+                    key={facility.id || index}
+                    activeOpacity={0.6}
+                    style={[styles.tab, activeTabIndex === index ? styles.activeTab : styles.inactiveTab]}
+                    onPress={() => handleTabPress(index)}
+                  >
+                    <Text style={activeTabIndex === index ? styles.activeTabText : styles.inactiveTabText}>
+                      {getTabName(index)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Right Navigation Arrow */}
               <TouchableOpacity 
-                activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 1' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 1')}
+                style={styles.rightArrow}
+                onPress={() => {
+                  const nextIndex = activeTabIndex < facilities.length - 1 ? activeTabIndex + 1 : 0;
+                  handleTabPress(nextIndex);
+                }}
               >
-                <Text style={activeTab === 'Information 1' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 1
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 2' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 2')}
-              >
-                <Text style={activeTab === 'Information 2' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 2
-                </Text>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                activeOpacity={0.6}
-                style={[styles.tab, activeTab === 'Information 3' ? styles.activeTab : styles.inactiveTab]}
-                onPress={() => handleTabPress('Information 3')}
-              >
-                <Text style={activeTab === 'Information 3' ? styles.activeTabText : styles.inactiveTabText}>
-                  Information 3
-                </Text>
+                <Text style={styles.arrowText}>›</Text>
               </TouchableOpacity>
             </View>
-
-            {/* Right Navigation Arrow */}
-            <TouchableOpacity 
-              style={styles.rightArrow}
-              onPress={() => {
-                const tabs = ['Information 1', 'Information 2', 'Information 3'];
-                const currentIndex = tabs.indexOf(activeTab);
-                const nextIndex = currentIndex < tabs.length - 1 ? currentIndex + 1 : 0;
-                handleTabPress(tabs[nextIndex]);
-              }}
-            >
-              <Text style={styles.arrowText}>›</Text>
-            </TouchableOpacity>
-          </View>
+          )}
 
           {/* Dynamic Content Area */}
           <View style={styles.contentArea}>
-            {renderContent()}
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.scrollView}
+              contentContainerStyle={styles.scrollViewContent}
+              showsVerticalScrollIndicator={false}
+              onScroll={(event) => {
+                setScrollY(event.nativeEvent.contentOffset.y);
+              }}
+              scrollEventThrottle={16}
+            >
+              {renderContent()}
+            </ScrollView>
             
             {/* Bottom Right Down Arrow */}
             <TouchableOpacity style={styles.bottomRightArrow}>
@@ -255,11 +361,15 @@ export default function ServicesScreen() {
           <View style={styles.controlItem}>
             <View style={styles.sphericalButton}>
               <View style={styles.dpadContainer}>
-                <View style={styles.dpadRow}>
+                <TouchableOpacity 
+                  style={styles.dpadRow}
+                  onPress={() => handleScrollContent('up')}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.dpadArrowPlaceholder} />
                   <Text style={styles.dpadArrow}>▲</Text>
                   <View style={styles.dpadArrowPlaceholder} />
-                </View>
+                </TouchableOpacity>
                 <View style={styles.dpadRow}>
                   <Text style={styles.scrollDpadArrow}>◄</Text>
                   <View style={styles.dpadCenter}>
@@ -267,11 +377,15 @@ export default function ServicesScreen() {
                   </View>
                   <Text style={styles.scrollDpadArrow}>►</Text>
                 </View>
-                <View style={styles.dpadRow}>
+                <TouchableOpacity 
+                  style={styles.dpadRow}
+                  onPress={() => handleScrollContent('down')}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.dpadArrowPlaceholder} />
                   <Text style={styles.dpadArrow}>▼</Text>
                   <View style={styles.dpadArrowPlaceholder} />
-                </View>
+                </TouchableOpacity>
               </View>
             </View>
             <Text style={styles.controlLabel}>SCROLL CONTENT</Text>
@@ -325,12 +439,14 @@ const styles = StyleSheet.create({
   mainContent: {
     flex: 1,
     paddingHorizontal: 15,
-    paddingVertical: 15,
+    paddingTop: 5,
+    paddingBottom: 15,
   },
   tabRowContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 5,
+    marginTop: 0,
     width: '100%',
   },
   leftArrow: {
@@ -390,7 +506,14 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#FFFFFF',
     padding: 15,
+    paddingTop: 10,
     position: 'relative',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollViewContent: {
+    flexGrow: 1,
   },
   contentContainer: {
     flex: 1,
@@ -408,20 +531,34 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginRight: 10,
     height: '100%',
-    paddingTop: 15,
+    paddingTop: 5,
   },
   rightContentSection: {
     flex: 1,
     justifyContent: 'flex-start',
     paddingLeft: 10,
-    paddingTop: 15,
+    paddingTop: 5,
+  },
+  imageContainer: {
+    width: '100%',
+    aspectRatio: 4 / 3, // Fixed aspect ratio for consistent sizing
+    backgroundColor: '#2A2A2A',
+    overflow: 'hidden',
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  facilityImage: {
+    width: '100%',
+    height: '100%',
   },
   imageOnlyBox: {
     width: '100%',
-    height: '85%',
+    aspectRatio: 4 / 3, // Match the image container aspect ratio
     backgroundColor: '#2A2A2A',
     justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 8,
   },
   imageOnlyText: {
     color: 'white',
@@ -588,5 +725,16 @@ const styles = StyleSheet.create({
     color: '#000',
     fontWeight: '600',
     marginLeft: 8,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 40,
+  },
+  loadingText: {
+    marginTop: 10,
+    fontSize: 14,
+    color: '#666',
   },
 });

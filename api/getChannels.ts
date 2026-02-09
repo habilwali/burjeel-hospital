@@ -1,7 +1,6 @@
 import type { GetChannelsResponse } from '../types/channels';
 import { cacheGet, cacheSet } from '../lib/cache';
-
-const API_BASE = 'https://cmt-technologies.net/iptv-cms';
+import { IPTV_API_BASE } from './config';
 
 /**
  * Fetches channels for a category from getChannels.php. Cached on first load per category.
@@ -22,7 +21,7 @@ export async function getChannels(categoryId: number): Promise<GetChannelsRespon
 }
 
 async function fetchChannelsFromNetwork(categoryId: number): Promise<GetChannelsResponse> {
-  const url = `${API_BASE}/api/getChannels.php?category_id=${categoryId}`;
+  const url = `${IPTV_API_BASE}/getChannels.php?category_id=${categoryId}`;
   const res = await fetch(url);
 
   if (!res.ok) {

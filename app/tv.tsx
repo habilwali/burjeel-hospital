@@ -6,6 +6,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import { getPackages } from '../api/getPackages';
 import { getChannels } from '../api/getChannels';
 import { getWelcomeData } from '../api/getWelcomeData';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 import type { PackageItem } from '../types/packages';
 import TvCategoryBar from '../components/TvCategoryBar';
 import TvChannelList from '../components/TvChannelList';
@@ -14,8 +15,6 @@ import TvBottomControls from '../components/TvBottomControls';
 import { cacheGet, cacheSet } from '../lib/cache';
 
 const { width, height } = Dimensions.get('window');
-const DEFAULT_MAC = 'A4:34:D9:E6:F7:30';
-const PACKAGES_CACHE_KEY = `packages:${DEFAULT_MAC}`;
 const CHANNELS_CACHE_PREFIX = 'channels:';
 
 // Fallback when API fails or empty; shape matches getPackages: { id, name, price, image }
@@ -28,6 +27,7 @@ type ChannelUi = { id: number; name: string; videoUrl: string; logo?: string };
 
 export default function TVScreen() {
   const router = useRouter();
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
   const [packages, setPackages] = useState<PackageItem[] | null>(null);
   const [packagesLoading, setPackagesLoading] = useState(true);
   const [selectedCategory, setSelectedCategory] = useState('All Channels');
@@ -46,11 +46,12 @@ export default function TVScreen() {
 
   // Fetch packages (categories) from API
   useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
     let cancelled = false;
     setPackagesLoading(true);
-    getPackages()
+    getPackages(deviceInfo.mac)
       .then((res) => {
-        console.log('[getPackages] API response:', JSON.stringify(res, null, 2));
         if (cancelled) return;
         const list = Array.isArray(res.packages) ? res.packages : [];
         setPackages(list);
@@ -64,19 +65,20 @@ export default function TVScreen() {
         // Removed eager prefetch of all channel lists to speed up initial load.
         // Channels are now fetched lazily when their category is selected.
       })
-      .catch((err) => {
-        console.log('[getPackages] API error:', err);
+      .catch(() => {
         if (!cancelled) {
           setPackages([]);
           setPackagesLoading(false);
         }
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
 
   useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
     let cancelled = false;
-    getWelcomeData()
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -84,6 +86,21 @@ export default function TVScreen() {
         // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
+  }, [deviceInfo?.mac]);
+
+  // Fetch device IP/MAC for this screen
+  useEffect(() => {
+    let cancelled = false;
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   // Selected package id = category_id for getChannels (from packages/categories)
@@ -114,6 +131,7 @@ export default function TVScreen() {
         // First channel in array is selected by default; his content loads in the player
         const first = list[0];
         setSelectedChannel(first ?? null);
+        // Ensure focus is set to first channel
         setFocusedChannelIndex(0);
         setChannelsLoading(false);
       })
@@ -367,9 +385,7 @@ export default function TVScreen() {
                   activeOpacity={0.6}
                   style={styles.menuItem}
                   onPress={() => {
-                    console.log('Information button pressed');
                     setShowMenuPopup(false);
-                    console.log('Navigating to information page');
                     router.replace('/information' as any);
                   }}
                 >
@@ -382,7 +398,6 @@ export default function TVScreen() {
                   onPress={() => {
                     setShowMenuPopup(false);
                     // Navigate to chromecast page (you can add this route later)
-                    console.log('Navigate to Chromecast');
                   }}
                 >
                   <Text style={styles.menuIcon}>📱</Text>
@@ -394,7 +409,6 @@ export default function TVScreen() {
                   onPress={() => {
                     setShowMenuPopup(false);
                     // Navigate to messages page (you can add this route later)
-                    console.log('Navigate to Messages');
                   }}
                 >
                   <Text style={styles.menuIcon}>✉️</Text>
@@ -406,7 +420,6 @@ export default function TVScreen() {
                   onPress={() => {
                     setShowMenuPopup(false);
                     // Navigate to map page (you can add this route later)
-                    console.log('Navigate to Map');
                   }}
                 >
                   <Text style={styles.menuIcon}>📍</Text>
@@ -418,7 +431,6 @@ export default function TVScreen() {
                   onPress={() => {
                     setShowMenuPopup(false);
                     // Navigate to weather page (you can add this route later)
-                    console.log('Navigate to Weather');
                   }}
                 >
                   <Text style={styles.menuIcon}>🌡️</Text>

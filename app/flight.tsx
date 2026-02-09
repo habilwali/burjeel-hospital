@@ -5,6 +5,7 @@ import DynamicHeader from '../components/DynamicHeader';
 import { getWelcomeData } from '../api/getWelcomeData';
 import { getFlights } from '../api/getFlights';
 import type { Flight } from '../types/flight';
+import { getMac, type GetMacResponse } from '@/api/getMac';
 
 const { width, height } = Dimensions.get('window');
 
@@ -16,10 +17,29 @@ export default function FlightScreen() {
   const [arrivalFlights, setArrivalFlights] = useState<Flight[]>([]);
   const [departureFlights, setDepartureFlights] = useState<Flight[]>([]);
   const [loading, setLoading] = useState(true);
+  const [deviceInfo, setDeviceInfo] = useState<GetMacResponse | null>(null);
 
+  // Fetch device MAC once for this screen
   useEffect(() => {
     let cancelled = false;
-    getWelcomeData()
+    getMac()
+      .then((info) => {
+        if (!cancelled) {
+          setDeviceInfo(info);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Fetch welcome data using dynamic MAC
+  useEffect(() => {
+    if (!deviceInfo?.mac) return;
+
+    let cancelled = false;
+    getWelcomeData(deviceInfo.mac)
       .then((data) => {
         if (!cancelled) setWelcomeData(data);
       })
@@ -27,13 +47,11 @@ export default function FlightScreen() {
         // Keep null on error; header shows "—"
       });
     return () => { cancelled = true; };
-  }, []);
+  }, [deviceInfo?.mac]);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    
-    console.log('[FlightScreen] Fetching flight data...');
     
     // Fetch both arrival and departure flights
     Promise.all([
@@ -42,15 +60,12 @@ export default function FlightScreen() {
     ])
       .then(([arrivalData, departureData]) => {
         if (!cancelled) {
-          console.log('[FlightScreen] Arrival flights received:', arrivalData.flights.length);
-          console.log('[FlightScreen] Departure flights received:', departureData.flights.length);
           setArrivalFlights(arrivalData.flights);
           setDepartureFlights(departureData.flights);
           setLoading(false);
         }
       })
-      .catch((error) => {
-        console.error('[FlightScreen] Error fetching flights:', error);
+      .catch(() => {
         if (!cancelled) {
           setLoading(false);
         }
