@@ -57,6 +57,7 @@ export async function getBackgroundVideos(mac: string): Promise<GetBackgroundVid
   }
 
   const url = `${API_BASE}/get_background_videos.php?mac=${encodeURIComponent(mac)}`;
+  console.log('[Video API] Fetching background videos...', { url, mac });
 
   const res = await fetchWithRetry(url);
 
